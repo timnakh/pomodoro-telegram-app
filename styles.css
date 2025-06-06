@@ -2,11 +2,14 @@
     --primary-color: #667eea;
     --secondary-color: #764ba2;
     --success-color: #4CAF50;
-    --text-color: #333;
-    --text-light: #666;
-    --bg-color: #f5f7fa;
-    --surface-color: #ffffff;
-    --border-color: #e1e8ed;
+    --bg-color: var(--tg-theme-bg-color, #f5f7fa);
+    --text-color: var(--tg-theme-text-color, #333);
+    --hint-color: var(--tg-theme-hint-color, #666);
+    --link-color: var(--tg-theme-link-color, #667eea);
+    --button-color: var(--tg-theme-button-color, #667eea);
+    --button-text-color: var(--tg-theme-button-text-color, #fff);
+    --surface-color: var(--tg-theme-bg-color, #ffffff);
+    --border-color: var(--tg-theme-hint-color, #e1e8ed);
     --shadow: 0 2px 10px rgba(0,0,0,0.1);
     --border-radius: 12px;
 }
@@ -19,26 +22,28 @@
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    background: var(--tg-theme-bg-color, linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%));
     color: var(--text-color);
     min-height: 100vh;
     line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 .demo-notice {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
-    padding: 15px;
+    padding: 12px;
     text-align: center;
     font-weight: 500;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    font-size: 14px;
 }
 
 .app-container {
     max-width: 400px;
     margin: 0 auto;
     background: var(--surface-color);
-    min-height: calc(100vh - 50px);
+    min-height: calc(100vh - 40px);
     border-radius: 20px 20px 0 0;
     overflow: hidden;
     box-shadow: var(--shadow);
@@ -52,10 +57,10 @@ body {
 
 .nav-tab {
     flex: 1;
-    padding: 15px 10px;
+    padding: 12px 8px;
     border: none;
     background: transparent;
-    color: var(--text-light);
+    color: var(--hint-color);
     font-size: 14px;
     cursor: pointer;
     transition: all 0.3s ease;
@@ -63,18 +68,18 @@ body {
 }
 
 .nav-tab.active {
-    color: var(--primary-color);
-    border-bottom-color: var(--primary-color);
+    color: var(--link-color);
+    border-bottom-color: var(--link-color);
     font-weight: 600;
 }
 
 .nav-tab:hover {
-    background: #f8f9fa;
+    background: var(--bg-color);
 }
 
 .tab-content {
     display: none;
-    padding: 20px;
+    padding: 15px;
     min-height: 500px;
 }
 
@@ -86,18 +91,19 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 30px;
-    padding: 15px 20px;
+    margin-bottom: 20px;
+    padding: 12px 16px;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     border-radius: var(--border-radius);
     color: white;
     font-weight: 600;
+    font-size: 14px;
 }
 
 .timer-container {
     display: flex;
     justify-content: center;
-    margin: 40px 0;
+    margin: 30px 0;
 }
 
 .circular-progress {
@@ -112,7 +118,7 @@ body {
 
 .progress-ring-background {
     fill: none;
-    stroke: #e1e8ed;
+    stroke: var(--border-color);
     stroke-width: 8;
 }
 
@@ -137,40 +143,42 @@ body {
 #time-display {
     font-size: 48px;
     font-weight: 700;
-    color: var(--primary-color);
+    color: var(--link-color);
     margin-bottom: 5px;
 }
 
 .timer-label {
-    font-size: 14px;
-    color: var(--text-light);
+    font-size: 13px;
+    color: var(--hint-color);
 }
 
 .controls {
     display: flex;
     gap: 8px;
     justify-content: center;
-    margin: 30px 0;
+    margin: 20px 0;
+    flex-wrap: wrap;
+    padding: 0 10px;
 }
 
 .control-btn {
-    padding: 12px 20px;
+    padding: 10px 16px;
     border: none;
     border-radius: var(--border-radius);
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
     display: flex;
     align-items: center;
     gap: 6px;
-    min-width: 120px;
+    min-width: 100px;
     justify-content: center;
 }
 
 .control-btn.primary {
-    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-    color: white;
+    background: var(--button-color);
+    color: var(--button-text-color);
 }
 
 .control-btn.primary:hover {
@@ -185,12 +193,12 @@ body {
 }
 
 .control-btn.secondary:hover {
-    background: #e8ecf0;
+    background: var(--border-color);
 }
 
 .full-width {
     width: 100%;
-    margin-top: 20px;
+    margin-top: 15px;
 }
 
 /* Settings Styles */
@@ -202,25 +210,27 @@ body {
 .settings-container h2 {
     margin-bottom: 20px;
     color: var(--text-color);
+    font-size: 18px;
 }
 
 .setting-group {
-    margin-bottom: 20px;
-    padding: 15px;
+    margin-bottom: 15px;
+    padding: 12px;
     background: var(--bg-color);
     border-radius: var(--border-radius);
 }
 
 .setting-group label {
     display: block;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     color: var(--text-color);
     font-weight: 500;
+    font-size: 14px;
 }
 
 .setting-group small {
     display: block;
-    color: var(--text-light);
+    color: var(--hint-color);
     font-size: 12px;
     margin-top: 4px;
 }
@@ -228,19 +238,21 @@ body {
 .number-input {
     display: flex;
     align-items: center;
-    gap: 8px;
-    background: white;
+    gap: 6px;
+    background: var(--surface-color);
     border-radius: var(--border-radius);
     padding: 4px;
     border: 1px solid var(--border-color);
 }
 
 .number-input input {
-    width: 60px;
+    width: 50px;
     text-align: center;
     border: none;
-    font-size: 16px;
-    padding: 8px;
+    font-size: 14px;
+    padding: 6px;
+    background: transparent;
+    color: var(--text-color);
     -moz-appearance: textfield;
 }
 
@@ -251,12 +263,12 @@ body {
 }
 
 .number-input button {
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
     border: none;
     background: var(--bg-color);
     color: var(--text-color);
-    font-size: 18px;
+    font-size: 16px;
     cursor: pointer;
     border-radius: 6px;
     display: flex;
@@ -283,9 +295,9 @@ body {
 }
 
 .checkmark {
-    width: 24px;
-    height: 24px;
-    background: white;
+    width: 22px;
+    height: 22px;
+    background: var(--surface-color);
     border: 2px solid var(--border-color);
     border-radius: 6px;
     position: relative;
@@ -293,41 +305,18 @@ body {
 }
 
 .checkbox-label input[type="checkbox"]:checked + .checkmark {
-    background: var(--primary-color);
-    border-color: var(--primary-color);
+    background: var(--button-color);
+    border-color: var(--button-color);
 }
 
 .checkbox-label input[type="checkbox"]:checked + .checkmark::after {
     content: "✓";
     position: absolute;
-    color: white;
-    font-size: 16px;
+    color: var(--button-text-color);
+    font-size: 14px;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-}
-
-/* Notification styles */
-.notification {
-    position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: white;
-    padding: 15px 25px;
-    border-radius: var(--border-radius);
-    box-shadow: var(--shadow);
-    z-index: 1000;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-}
-
-.notification.show {
-    opacity: 1;
-}
-
-.notification.hidden {
-    display: none;
 }
 
 /* Statistics Styles */
@@ -336,16 +325,28 @@ body {
     margin: 0 auto;
 }
 
+.stats-container h2 {
+    margin-bottom: 15px;
+    color: var(--text-color);
+    font-size: 18px;
+}
+
 .period-selector {
     display: flex;
-    gap: 8px;
-    margin-bottom: 20px;
+    gap: 6px;
+    margin: 15px 0;
     overflow-x: auto;
-    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 5px;
+}
+
+.period-selector::-webkit-scrollbar {
+    display: none;
 }
 
 .period-btn {
-    padding: 8px 16px;
+    padding: 6px 12px;
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius);
     background: var(--bg-color);
@@ -353,64 +354,66 @@ body {
     cursor: pointer;
     transition: all 0.3s ease;
     white-space: nowrap;
+    font-size: 14px;
 }
 
 .period-btn.active {
-    background: var(--primary-color);
-    color: white;
-    border-color: var(--primary-color);
+    background: var(--button-color);
+    color: var(--button-text-color);
+    border-color: var(--button-color);
 }
 
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 15px;
-    margin-bottom: 30px;
+    gap: 10px;
+    margin: 15px 0;
 }
 
 .stat-card {
     background: var(--bg-color);
-    padding: 20px;
+    padding: 15px;
     border-radius: var(--border-radius);
     text-align: center;
 }
 
 .stat-icon {
-    font-size: 24px;
-    margin-bottom: 10px;
+    font-size: 20px;
+    margin-bottom: 8px;
 }
 
 .stat-value {
-    font-size: 28px;
+    font-size: 24px;
     font-weight: 700;
-    color: var(--primary-color);
-    margin-bottom: 5px;
+    color: var(--link-color);
+    margin-bottom: 4px;
 }
 
 .stat-label {
-    color: var(--text-light);
-    font-size: 14px;
+    color: var(--hint-color);
+    font-size: 13px;
 }
 
 /* Chart styles */
 .chart-container {
     background: var(--bg-color);
-    padding: 20px;
+    padding: 15px;
     border-radius: var(--border-radius);
-    margin-bottom: 30px;
+    margin-bottom: 20px;
 }
 
 .chart-container h3 {
-    margin-bottom: 20px;
+    margin-bottom: 15px;
     color: var(--text-color);
+    font-size: 16px;
 }
 
 .chart {
     display: flex;
     justify-content: space-between;
     align-items: flex-end;
-    height: 200px;
-    gap: 8px;
+    height: 160px;
+    gap: 6px;
 }
 
 .chart-day {
@@ -418,12 +421,12 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
 }
 
 .chart-bar {
     width: 100%;
-    background: var(--primary-color);
+    background: var(--link-color);
     border-radius: 4px 4px 0 0;
     transition: height 0.3s ease;
     height: 0%;
@@ -431,27 +434,29 @@ body {
 
 .chart-label {
     font-size: 12px;
-    color: var(--text-light);
+    color: var(--hint-color);
 }
 
 /* Detailed stats */
 .detailed-stats {
     background: var(--bg-color);
-    padding: 20px;
+    padding: 15px;
     border-radius: var(--border-radius);
-    margin-bottom: 30px;
+    margin-bottom: 20px;
 }
 
 .detailed-stats h3 {
-    margin-bottom: 20px;
+    margin-bottom: 15px;
     color: var(--text-color);
+    font-size: 16px;
 }
 
 .stat-row {
     display: flex;
     justify-content: space-between;
-    padding: 10px 0;
+    padding: 8px 0;
     border-bottom: 1px solid var(--border-color);
+    font-size: 14px;
 }
 
 .stat-row:last-child {
@@ -461,28 +466,29 @@ body {
 /* Achievements */
 .achievements {
     background: var(--bg-color);
-    padding: 20px;
+    padding: 15px;
     border-radius: var(--border-radius);
-    margin-bottom: 30px;
+    margin-bottom: 20px;
 }
 
 .achievements h3 {
-    margin-bottom: 20px;
+    margin-bottom: 15px;
     color: var(--text-color);
+    font-size: 16px;
 }
 
 .achievement-list {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 15px;
+    gap: 10px;
 }
 
 .achievement {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 15px;
-    background: white;
+    gap: 8px;
+    padding: 12px;
+    background: var(--surface-color);
     border-radius: var(--border-radius);
     transition: all 0.3s ease;
 }
@@ -493,12 +499,37 @@ body {
 }
 
 .achievement-icon {
-    font-size: 24px;
+    font-size: 20px;
 }
 
 .achievement-text {
+    font-size: 13px;
+    color: var(--text-color);
+}
+
+/* Notification styles */
+.notification {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--surface-color);
+    padding: 12px 20px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.3s ease;
     font-size: 14px;
     color: var(--text-color);
+}
+
+.notification.show {
+    opacity: 1;
+}
+
+.notification.hidden {
+    display: none;
 }
 
 /* Danger button */
