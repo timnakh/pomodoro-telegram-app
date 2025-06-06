@@ -1,5 +1,19 @@
 console.log("Pomodoro Timer Loading...");
 
+// Звуки для уведомлений
+const SOUNDS = {
+    sound1: { name: '🌪️ Волшебный вжух', file: 'sound1.wav' },
+    sound2: { name: '🕹️ Геймовер', file: 'sound2.wav' },
+    sound3: { name: '🔔 Колокольчик', file: 'sound3.wav' },
+    sound4: { name: '🎺 Весёлый свисток', file: 'sound4.wav' },
+    sound5: { name: '✨ Правильный ответ', file: 'sound5.wav' },
+    sound6: { name: '💫 Быстрый взмах', file: 'sound6.wav' },
+    sound7: { name: '👾 Ретро-уведомление', file: 'sound7.wav' },
+    sound8: { name: '🛸 Космический клик', file: 'sound8.wav' },
+    sound9: { name: '🤧 Апчхи!', file: 'sound9.wav' },
+    sound10: { name: '🚀 Запуск системы', file: 'sound10.wav' }
+};
+
 class PomodoroTimer {
     constructor() {
         // Default settings
@@ -10,8 +24,13 @@ class PomodoroTimer {
             sessionsUntilLongBreak: 4,
             soundEnabled: true,
             autoStartBreaks: false,
-            autoStartWork: false
+            autoStartWork: false,
+            selectedSound: 'sound1' // Звук по умолчанию
         };
+
+        // Инициализация аудио контекста и буферов
+        this.audioContext = null;
+        this.soundBuffers = {};
 
         // Current settings
         this.settings = { ...this.defaultSettings };
@@ -136,6 +155,17 @@ class PomodoroTimer {
         document.getElementById("sound-enabled").checked = this.settings.soundEnabled;
         document.getElementById("auto-start-breaks").checked = this.settings.autoStartBreaks;
         document.getElementById("auto-start-work").checked = this.settings.autoStartWork;
+
+        // Создаем селектор звуков, если его еще нет
+        if (!document.querySelector('#sound-select')) {
+            this.createSoundSelector();
+        }
+        
+        // Устанавливаем выбранный звук
+        const soundSelect = document.querySelector('#sound-select');
+        if (soundSelect) {
+            soundSelect.value = this.settings.selectedSound;
+        }
     }
 
     saveSettings() {
@@ -146,7 +176,8 @@ class PomodoroTimer {
             sessionsUntilLongBreak: parseInt(document.getElementById("sessions-until-long-break").value),
             soundEnabled: document.getElementById("sound-enabled").checked,
             autoStartBreaks: document.getElementById("auto-start-breaks").checked,
-            autoStartWork: document.getElementById("auto-start-work").checked
+            autoStartWork: document.getElementById("auto-start-work").checked,
+            selectedSound: document.querySelector('#sound-select').value
         };
 
         // Validate settings
@@ -268,6 +299,9 @@ class PomodoroTimer {
         if (this.shouldAutoStart()) {
             setTimeout(() => this.startTimer(), 3000);
         }
+
+        // Сохраняем статистику в Telegram Storage
+        this.saveStats();
     }
 
     switchToNextSession() {
@@ -380,21 +414,22 @@ class PomodoroTimer {
     }
 
     playNotificationSound() {
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
+        if (!this.settings.soundEnabled || !this.audioContext || !this.soundBuffers[this.settings.selectedSound]) return;
         
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        
-        oscillator.frequency.value = this.currentSession === 'work' ? 800 : 400;
-        oscillator.type = 'sine';
-        
-        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-        
-        oscillator.start(audioContext.currentTime);
-        oscillator.stop(audioContext.currentTime + 0.5);
+        try {
+            const source = this.audioContext.createBufferSource();
+            const gainNode = this.audioContext.createGain();
+            
+            source.buffer = this.soundBuffers[this.settings.selectedSound];
+            gainNode.gain.value = 0.5; // Устанавливаем громкость на 50%
+            
+            source.connect(gainNode);
+            gainNode.connect(this.audioContext.destination);
+            
+            source.start(0);
+        } catch (error) {
+            console.error('Error playing sound:', error);
+        }
     }
 
     showNotification(message) {
@@ -420,6 +455,70 @@ class PomodoroTimer {
         if (savedSettings) {
             this.settings = { ...this.defaultSettings, ...JSON.parse(savedSettings) };
         }
+
+        // Initialize sounds
+        this.initSounds();
+    }
+
+    async initSounds() {
+        try {
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // Загружаем все звуки
+            for (const [key, sound] of Object.entries(SOUNDS)) {
+                try {
+                    const response = await fetch(`sounds/${sound.file}`);
+                    const arrayBuffer = await response.arrayBuffer();
+                    this.soundBuffers[key] = await this.audioContext.decodeAudioData(arrayBuffer);
+                } catch (error) {
+                    console.error(`Error loading sound ${key}:`, error);
+                }
+            }
+        } catch (error) {
+            console.error('Error initializing audio context:', error);
+        }
+    }
+
+    createSoundSelector() {
+        const settingsContainer = document.querySelector('.settings-container');
+        const soundGroup = document.createElement('div');
+        soundGroup.className = 'setting-group';
+        
+        const label = document.createElement('label');
+        label.textContent = 'Звук уведомления';
+        
+        const select = document.createElement('select');
+        select.id = 'sound-select';
+        select.className = 'sound-select';
+        
+        // Добавляем опции для всех звуков
+        Object.entries(SOUNDS).forEach(([key, sound]) => {
+            const option = document.createElement('option');
+            option.value = key;
+            option.textContent = sound.name;
+            select.appendChild(option);
+        });
+        
+        const testButton = document.createElement('button');
+        testButton.className = 'control-btn secondary';
+        testButton.innerHTML = '<span class="btn-icon">🔊</span><span class="btn-text">Тест</span>';
+        testButton.onclick = () => this.playNotificationSound();
+        
+        soundGroup.appendChild(label);
+        soundGroup.appendChild(select);
+        soundGroup.appendChild(testButton);
+        
+        // Вставляем перед кнопкой сохранения
+        const saveButton = document.querySelector('#save-settings');
+        settingsContainer.insertBefore(soundGroup, saveButton);
+        
+        // Обработчик изменения звука
+        select.addEventListener('change', (e) => {
+            this.settings.selectedSound = e.target.value;
+            this.playNotificationSound();
+        });
+        
+        return select;
     }
 
     updateSessionStats(completed = true) {
