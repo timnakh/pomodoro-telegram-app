@@ -152,9 +152,19 @@ class PomodoroTimer {
 
     bindEvents() {
         // Timer controls
-        document.getElementById("start-pause-btn").addEventListener("click", () => this.toggleTimer());
-        document.getElementById("reset-btn").addEventListener("click", () => this.resetTimer());
-        document.getElementById("skip-btn").addEventListener("click", () => this.skipSession());
+        const startPauseBtn = document.getElementById("start-pause-btn");
+        const resetBtn = document.getElementById("reset-btn");
+        const skipBtn = document.getElementById("skip-btn");
+
+        if (startPauseBtn) {
+            startPauseBtn.addEventListener("click", () => this.toggleTimer());
+        }
+        if (resetBtn) {
+            resetBtn.addEventListener("click", () => this.resetTimer());
+        }
+        if (skipBtn) {
+            skipBtn.addEventListener("click", () => this.skipSession());
+        }
         
         // Tab navigation
         document.querySelectorAll(".nav-tab").forEach(tab => {
@@ -164,8 +174,25 @@ class PomodoroTimer {
         });
 
         // Settings controls
-        document.getElementById("save-settings").addEventListener("click", () => this.saveSettings());
-        document.getElementById("reset-settings").addEventListener("click", () => this.resetSettings());
+        const saveSettingsBtn = document.getElementById("save-settings");
+        const resetSettingsBtn = document.getElementById("reset-settings");
+        const testSoundBtn = document.getElementById("test-sound");
+        const soundSelect = document.getElementById("sound-select");
+
+        if (saveSettingsBtn) {
+            saveSettingsBtn.addEventListener("click", () => this.saveSettings());
+        }
+        if (resetSettingsBtn) {
+            resetSettingsBtn.addEventListener("click", () => this.resetSettings());
+        }
+        if (testSoundBtn) {
+            testSoundBtn.addEventListener("click", () => this.playNotificationSound());
+        }
+        if (soundSelect) {
+            soundSelect.addEventListener("change", (e) => {
+                this.settings.selectedSound = e.target.value;
+            });
+        }
 
         // Number input controls
         document.querySelectorAll('.number-input').forEach(container => {
@@ -173,15 +200,19 @@ class PomodoroTimer {
             const decreaseBtn = container.querySelector('.decrease');
             const increaseBtn = container.querySelector('.increase');
 
-            decreaseBtn.addEventListener('click', () => {
-                const newValue = Math.max(parseInt(input.value) - 1, parseInt(input.min));
-                input.value = newValue;
-            });
+            if (decreaseBtn) {
+                decreaseBtn.addEventListener('click', () => {
+                    const newValue = Math.max(parseInt(input.value) - 1, parseInt(input.min));
+                    input.value = newValue;
+                });
+            }
 
-            increaseBtn.addEventListener('click', () => {
-                const newValue = Math.min(parseInt(input.value) + 1, parseInt(input.max));
-                input.value = newValue;
-            });
+            if (increaseBtn) {
+                increaseBtn.addEventListener('click', () => {
+                    const newValue = Math.min(parseInt(input.value) + 1, parseInt(input.max));
+                    input.value = newValue;
+                });
+            }
         });
 
         // Statistics controls
@@ -193,27 +224,12 @@ class PomodoroTimer {
             });
         });
 
-        document.getElementById('reset-stats').addEventListener('click', () => {
-            if (confirm('Вы уверены, что хотите сбросить всю статистику?')) {
-                this.resetStats();
-            }
-        });
-
-        // Привязываем обработчик к кнопке теста звука
-        const testSoundButton = document.getElementById('test-sound');
-        if (testSoundButton) {
-            testSoundButton.addEventListener('click', () => {
-                console.log('Test sound button clicked');
-                this.playNotificationSound();
-            });
-        }
-
-        // Привязываем обработчик к селектору звуков
-        const soundSelect = document.getElementById('sound-select');
-        if (soundSelect) {
-            soundSelect.addEventListener('change', (e) => {
-                console.log('Sound changed to:', e.target.value);
-                this.settings.selectedSound = e.target.value;
+        const resetStatsBtn = document.getElementById('reset-stats');
+        if (resetStatsBtn) {
+            resetStatsBtn.addEventListener('click', () => {
+                if (confirm('Вы уверены, что хотите сбросить всю статистику?')) {
+                    this.resetStats();
+                }
             });
         }
     }
@@ -287,30 +303,32 @@ class PomodoroTimer {
     }
 
     startTimer() {
-        this.isRunning = true;
-        this.updateButton();
-        this.lastUpdate = performance.now();
-        this.startTime = this.lastUpdate;
-        
-        const updateTimer = (currentTime) => {
-            if (!this.isRunning) return;
+        if (!this.isRunning) {
+            this.isRunning = true;
+            this.updateButton();
+            this.lastUpdate = performance.now();
+            this.startTime = this.lastUpdate;
             
-            const elapsed = (currentTime - this.lastUpdate) / 1000;
-            this.lastUpdate = currentTime;
+            const updateTimer = (currentTime) => {
+                if (!this.isRunning) return;
+                
+                const elapsed = (currentTime - this.lastUpdate) / 1000;
+                this.lastUpdate = currentTime;
+                
+                this.currentTime = Math.max(0, this.currentTime - elapsed);
+                
+                if (this.currentTime <= 0) {
+                    this.completeSession();
+                    return;
+                }
+                
+                this.updateDisplay();
+                this.updateProgress();
+                requestAnimationFrame(updateTimer);
+            };
             
-            this.currentTime = Math.max(0, this.currentTime - elapsed);
-            
-            if (this.currentTime <= 0) {
-                this.completeSession();
-                return;
-            }
-            
-            this.updateDisplay();
-            this.updateProgress();
             requestAnimationFrame(updateTimer);
-        };
-        
-        requestAnimationFrame(updateTimer);
+        }
     }
 
     pauseTimer() {
@@ -442,10 +460,12 @@ class PomodoroTimer {
 
     updateButton() {
         const btn = document.getElementById("start-pause-btn");
-        if (this.isRunning) {
-            btn.innerHTML = '<span class="btn-icon">⏸️</span> Пауза';
-        } else {
-            btn.innerHTML = '<span class="btn-icon">▶️</span> Начать';
+        if (btn) {
+            if (this.isRunning) {
+                btn.innerHTML = '<span class="btn-icon">⏸️</span><span class="btn-text">Пауза</span>';
+            } else {
+                btn.innerHTML = '<span class="btn-icon">▶️</span><span class="btn-text">Начать</span>';
+            }
         }
     }
 
