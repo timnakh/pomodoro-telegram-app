@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pomodoro Timer</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#007AFF">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Pomodoro">
+    <meta name="description" content="Полнофункциональный Pomodoro-таймер для повышения продуктивности">
+    
+    <!-- Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles.css">
+    
+    <!-- Telegram Web App Script -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+    <!-- Главный контейнер приложения -->
+    <div class="app-container">
+        <!-- Навигация -->
+        <nav class="nav-tabs">
+            <button class="nav-tab active" data-tab="timer">
+                <span class="tab-icon">⏰</span>
+                Таймер
+            </button>
+            <button class="nav-tab" data-tab="settings">
+                <span class="tab-icon">⚙️</span>
+                Настройки
+            </button>
+            <button class="nav-tab" data-tab="stats">
+                <span class="tab-icon">📊</span>
+                Статистика
+            </button>
+        </nav>
+
+        <!-- Секция таймера -->
+        <div class="tab-content active" id="timer-tab">
+            <!-- Индикатор текущей сессии -->
+            <div class="session-indicator">
+                <span id="session-type">Рабочий блок</span>
+                <span id="session-count">1/4</span>
+            </div>
+
+            <!-- Круговой прогресс-бар -->
+            <div class="timer-container">
+                <div class="circular-progress">
+                    <svg class="progress-ring" width="280" height="280">
+                        <circle class="progress-ring-background" cx="140" cy="140" r="130"></circle>
+                        <circle class="progress-ring-fill" cx="140" cy="140" r="130"></circle>
+                    </svg>
+                    <div class="timer-display">
+                        <div id="time-display">25:00</div>
+                        <div class="timer-label">минут осталось</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Кнопки управления -->
+            <div class="controls">
+                <button id="start-pause-btn" class="control-btn primary">
+                    <span class="btn-icon">▶️</span>
+                    Начать
+                </button>
+                <button id="reset-btn" class="control-btn secondary">
+                    <span class="btn-icon">🔄</span>
+                    Сброс
+                </button>
+                <button id="skip-btn" class="control-btn secondary">
+                    <span class="btn-icon">⏭️</span>
+                    Пропустить
+                </button>
+            </div>
+
+            <!-- Мини-статистика для текущего дня -->
+            <div class="daily-progress">
+                <h3>Сегодня</h3>
+                <div class="progress-stats">
+                    <div class="stat-item">
+                        <span class="stat-number" id="today-pomodoros">0</span>
+                        <span class="stat-label">помидоров</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number" id="today-time">0</span>
+                        <span class="stat-label">минут</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Секция настроек -->
+        <div class="tab-content" id="settings-tab">
+            <div class="settings-container">
+                <h2>Настройки таймера</h2>
+                
+                <div class="setting-group">
+                    <label for="work-duration">Рабочий блок (минуты)</label>
+                    <input type="number" id="work-duration" min="1" max="60" value="25">
+                </div>
+
+                <div class="setting-group">
+                    <label for="short-break-duration">Короткий перерыв (минуты)</label>
+                    <input type="number" id="short-break-duration" min="1" max="30" value="5">
+                </div>
+
+                <div class="setting-group">
+                    <label for="long-break-duration">Длинный перерыв (минуты)</label>
+                    <input type="number" id="long-break-duration" min="1" max="60" value="15">
+                </div>
+
+                <div class="setting-group">
+                    <label for="sessions-until-long-break">Рабочих блоков до длинного перерыва</label>
+                    <input type="number" id="sessions-until-long-break" min="2" max="8" value="4">
+                </div>
+
+                <div class="setting-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="sound-enabled" checked>
+                        <span class="checkmark"></span>
+                        Звуковые уведомления
+                    </label>
+                </div>
+
+                <div class="setting-group">
+                    <label for="sound-select">Звук уведомления</label>
+                    <select id="sound-select" class="sound-select">
+                        <option value="sound1">🌪️ Волшебный вжух</option>
+                        <option value="sound2">🕹️ Геймовер</option>
+                        <option value="sound3">🔔 Колокольчик</option>
+                        <option value="sound4">🎺 Весёлый свисток</option>
+                        <option value="sound5">✨ Правильный ответ</option>
+                        <option value="sound6">💫 Быстрый взмах</option>
+                        <option value="sound7">👾 Ретро-уведомление</option>
+                        <option value="sound8">🛸 Космический клик</option>
+                        <option value="sound9">🤧 Апчхи!</option>
+                        <option value="sound10">🚀 Запуск системы</option>
+                    </select>
+                    <button id="test-sound" class="control-btn secondary">
+                        <span class="btn-icon">🔊</span>
+                        <span class="btn-text">Тест</span>
+                    </button>
+                </div>
+
+                <button id="save-settings" class="control-btn primary full-width">
+                    <span class="btn-icon">💾</span>
+                    <span class="btn-text">Сохранить настройки</span>
+                </button>
+
+                <button id="reset-settings" class="control-btn secondary full-width">
+                    <span class="btn-icon">🔄</span>
+                    <span class="btn-text">Сбросить настройки</span>
+                </button>
+
+                <button id="reset-stats" class="control-btn danger full-width">
+                    <span class="btn-icon">🗑️</span>
+                    <span class="btn-text">Сбросить всю статистику</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Секция статистики -->
+        <div class="tab-content" id="stats-tab">
+            <div class="stats-container">
+                <h2>Статистика</h2>
+                
+                <!-- Статистика за сегодня -->
+                <div class="stats-period">
+                    <h3>Сегодня</h3>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value" id="stats-today-pomodoros">0</div>
+                            <div class="stat-label">Помидоров</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="stats-today-time">0</div>
+                            <div class="stat-label">Минут</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Статистика за неделю -->
+                <div class="stats-period">
+                    <h3>Эта неделя</h3>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value" id="stats-week-pomodoros">0</div>
+                            <div class="stat-label">Помидоров</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="stats-week-time">0</div>
+                            <div class="stat-label">Минут</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Статистика за месяц -->
+                <div class="stats-period">
+                    <h3>Этот месяц</h3>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value" id="stats-month-pomodoros">0</div>
+                            <div class="stat-label">Помидоров</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="stats-month-time">0</div>
+                            <div class="stat-label">Минут</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Визуализация прогресса за неделю -->
+                <div class="weekly-chart">
+                    <h3>Прогресс за неделю</h3>
+                    <div class="chart-container">
+                        <div class="chart-bars" id="weekly-chart"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Уведомления -->
+    <div id="notification" class="notification hidden">
+        <div class="notification-content">
+            <span id="notification-text"></span>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html> 
