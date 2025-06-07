@@ -1,6 +1,22 @@
+console.log("Pomodoro Timer Loading...");
+
+// Звуки для уведомлений
+const SOUNDS = {
+    sound1: { name: '🌪️ Волшебный вжух', file: 'sound1.wav' },
+    sound2: { name: '🕹️ Геймовер', file: 'sound2.wav' },
+    sound3: { name: '🔔 Колокольчик', file: 'sound3.wav' },
+    sound4: { name: '🎺 Весёлый свисток', file: 'sound4.wav' },
+    sound5: { name: '✨ Правильный ответ', file: 'sound5.wav' },
+    sound6: { name: '💫 Быстрый взмах', file: 'sound6.wav' },
+    sound7: { name: '👾 Ретро-уведомление', file: 'sound7.wav' },
+    sound8: { name: '🛸 Космический клик', file: 'sound8.wav' },
+    sound9: { name: '🤧 Апчхи!', file: 'sound9.wav' },
+    sound10: { name: '🚀 Запуск системы', file: 'sound10.wav' }
+};
+
 class PomodoroTimer {
     constructor() {
-        // Настройки по умолчанию
+        // Default settings
         this.defaultSettings = {
             workDuration: 25,
             shortBreakDuration: 5,
@@ -8,193 +24,338 @@ class PomodoroTimer {
             sessionsUntilLongBreak: 4,
             soundEnabled: true,
             autoStartBreaks: false,
-            autoStartWork: false
+            autoStartWork: false,
+            selectedSound: 'sound4' // Весёлый свисток по умолчанию
         };
 
-        // Текущие настройки
+        // Current settings
         this.settings = { ...this.defaultSettings };
-
-        // Состояние таймера
+        
+        // Timer state
+        this.currentTime = this.settings.workDuration * 60;
         this.isRunning = false;
-        this.isPaused = false;
-        this.currentSession = 'work'; // 'work', 'shortBreak', 'longBreak'
-        this.sessionsCompleted = 0;
-        this.timeRemaining = this.settings.workDuration * 60;
-        this.totalTime = this.settings.workDuration * 60;
         this.timer = null;
+        this.currentSession = 'work';
+        this.sessionsCompleted = 0;
+        this.lastUpdate = null;
+        this.startTime = null;
 
-        // Статистика
+        // Audio context and buffers
+        this.audioContext = null;
+        this.soundBuffers = {};
+
+        // Statistics
         this.stats = {
-            today: { pomodoros: 0, time: 0, date: new Date().toDateString() },
-            week: [],
-            total: { pomodoros: 0, time: 0, sessions: 0, firstSession: null },
-            achievements: []
+            today: { 
+                pomodoros: 0, 
+                time: 0, 
+                date: new Date().toDateString(),
+                completed: 0,
+                interrupted: 0
+            },
+            week: Array(7).fill().map(() => ({ pomodoros: 0, time: 0 })),
+            total: {
+                pomodoros: 0,
+                time: 0,
+                sessions: 0,
+                firstSession: null,
+                bestDay: { date: null, pomodoros: 0 },
+                currentStreak: 0,
+                bestStreak: 0
+            },
+            achievements: {
+                first: false,
+                streak: false,
+                master: false,
+                efficient: false
+            }
         };
 
-        // Инициализация
         this.init();
     }
 
-    init() {
-        this.loadSettings();
-        this.loadStats();
-        this.initializeElements();
+    async init() {
+        await this.loadSettings();
+        await this.loadStats();
+        await this.initSounds();
+        this.resetTimer();
         this.bindEvents();
-        this.updateDisplay();
+        this.initializeSettings();
         this.updateStats();
-        this.checkAchievements();
+        console.log("Timer Ready!");
+    }
 
-        // Telegram Web App готовность
-        if (window.Telegram?.WebApp) {
-            window.Telegram.WebApp.ready();
-            window.Telegram.WebApp.expand();
+    // Функции для работы с Telegram Storage
+    async saveTelegramStorage(key, data) {
+        try {
+            await window.Telegram.WebApp.CloudStorage.setItem(key, JSON.stringify(data));
+        } catch (error) {
+            console.error('Error saving to Telegram Storage:', error);
+            // Fallback to localStorage if Telegram Storage fails
+            localStorage.setItem(key, JSON.stringify(data));
         }
     }
 
-    initializeElements() {
-        // Основные элементы
-        this.timeDisplay = document.getElementById('time-display');
-        this.sessionType = document.getElementById('session-type');
-        this.sessionCount = document.getElementById('session-count');
-        this.startPauseBtn = document.getElementById('start-pause-btn');
-        this.resetBtn = document.getElementById('reset-btn');
-        this.skipBtn = document.getElementById('skip-btn');
-        this.progressRing = document.querySelector('.progress-ring-fill');
+    async loadTelegramStorage(key, defaultValue = null) {
+        try {
+            return new Promise((resolve) => {
+                window.Telegram.WebApp.CloudStorage.getItem(key, (error, value) => {
+                    if (error || !value) {
+                        // Try loading from localStorage as fallback
+                        const localData = localStorage.getItem(key);
+                        if (localData) {
+                            resolve(JSON.parse(localData));
+                        } else {
+                            resolve(defaultValue);
+                        }
+                    } else {
+                        resolve(JSON.parse(value));
+                    }
+                });
+            });
+        } catch (error) {
+            console.error('Error loading from Telegram Storage:', error);
+            // Fallback to localStorage
+            const localData = localStorage.getItem(key);
+            return localData ? JSON.parse(localData) : defaultValue;
+        }
+    }
 
-        // Элементы вкладок
-        this.navTabs = document.querySelectorAll('.nav-tab');
-        this.tabContents = document.querySelectorAll('.tab-content');
+    async saveSettings() {
+        const settings = {
+            workDuration: parseInt(document.getElementById("work-duration").value),
+            shortBreakDuration: parseInt(document.getElementById("short-break-duration").value),
+            longBreakDuration: parseInt(document.getElementById("long-break-duration").value),
+            sessionsUntilLongBreak: parseInt(document.getElementById("sessions-until-long-break").value),
+            soundEnabled: document.getElementById("sound-enabled").checked,
+            autoStartBreaks: document.getElementById("auto-start-breaks").checked,
+            autoStartWork: document.getElementById("auto-start-work").checked,
+            selectedSound: document.querySelector('#sound-select').value
+        };
 
-        // Элементы настроек
-        this.workDurationInput = document.getElementById('work-duration');
-        this.shortBreakInput = document.getElementById('short-break-duration');
-        this.longBreakInput = document.getElementById('long-break-duration');
-        this.sessionsInput = document.getElementById('sessions-until-long-break');
-        this.soundEnabledInput = document.getElementById('sound-enabled');
-        this.autoStartBreaksInput = document.getElementById('auto-start-breaks');
-        this.autoStartWorkInput = document.getElementById('auto-start-work');
-        this.saveSettingsBtn = document.getElementById('save-settings-btn');
-        this.resetSettingsBtn = document.getElementById('reset-settings-btn');
+        if (this.validateSettings(settings)) {
+            this.settings = settings;
+            await this.saveTelegramStorage('pomodoro_settings', settings);
+            this.showNotification("✅ Настройки сохранены");
+            
+            if (!this.isRunning) {
+                this.resetTimer();
+            }
+        }
+    }
 
-        // Элементы статистики
-        this.periodBtns = document.querySelectorAll('.period-btn');
-        this.resetStatsBtn = document.getElementById('reset-stats-btn');
-
-        // Уведомления
-        this.notification = document.getElementById('notification');
-        this.notificationText = document.getElementById('notification-text');
-
-        // Инициализируем значения настроек в полях
-        this.updateSettingsInputs();
+    async loadSettings() {
+        const settings = await this.loadTelegramStorage('pomodoro_settings', this.defaultSettings);
+        this.settings = { ...this.defaultSettings, ...settings };
+        this.initializeSettings();
     }
 
     bindEvents() {
-        // Основные кнопки
-        this.startPauseBtn.addEventListener('click', () => this.toggleTimer());
-        this.resetBtn.addEventListener('click', () => this.resetTimer());
-        this.skipBtn.addEventListener('click', () => this.skipSession());
-
-        // Навигация по вкладкам
-        this.navTabs.forEach(tab => {
-            tab.addEventListener('click', () => this.switchTab(tab.dataset.tab));
+        // Timer controls
+        document.getElementById("start-pause-btn").addEventListener("click", () => this.toggleTimer());
+        document.getElementById("reset-btn").addEventListener("click", () => this.resetTimer());
+        document.getElementById("skip-btn").addEventListener("click", () => this.skipSession());
+        
+        // Tab navigation
+        document.querySelectorAll(".nav-tab").forEach(tab => {
+            tab.addEventListener("click", (e) => {
+                this.switchTab(e.target.dataset.tab);
+            });
         });
 
-        // Настройки
-        this.saveSettingsBtn.addEventListener('click', () => this.saveSettings());
-        this.resetSettingsBtn.addEventListener('click', () => this.resetSettings());
+        // Settings controls
+        document.getElementById("save-settings").addEventListener("click", () => this.saveSettings());
+        document.getElementById("reset-settings").addEventListener("click", () => this.resetSettings());
 
-        // Переключатели периодов статистики
-        this.periodBtns.forEach(btn => {
-            btn.addEventListener('click', () => this.switchStatsPeriod(btn.dataset.period));
+        // Number input controls
+        document.querySelectorAll('.number-input').forEach(container => {
+            const input = container.querySelector('input');
+            const decreaseBtn = container.querySelector('.decrease');
+            const increaseBtn = container.querySelector('.increase');
+
+            decreaseBtn.addEventListener('click', () => {
+                const newValue = Math.max(parseInt(input.value) - 1, parseInt(input.min));
+                input.value = newValue;
+            });
+
+            increaseBtn.addEventListener('click', () => {
+                const newValue = Math.min(parseInt(input.value) + 1, parseInt(input.max));
+                input.value = newValue;
+            });
         });
 
-        // Сброс статистики
-        this.resetStatsBtn.addEventListener('click', () => this.resetStats());
+        // Statistics controls
+        document.querySelectorAll('.period-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                this.updateStats(btn.dataset.period);
+            });
+        });
+
+        document.getElementById('reset-stats').addEventListener('click', () => {
+            if (confirm('Вы уверены, что хотите сбросить всю статистику?')) {
+                this.resetStats();
+            }
+        });
+
+        // Привязываем обработчик к кнопке теста звука
+        const testSoundButton = document.getElementById('test-sound');
+        if (testSoundButton) {
+            testSoundButton.addEventListener('click', () => {
+                console.log('Test sound button clicked');
+                this.playNotificationSound();
+            });
+        }
+
+        // Привязываем обработчик к селектору звуков
+        const soundSelect = document.getElementById('sound-select');
+        if (soundSelect) {
+            soundSelect.addEventListener('change', (e) => {
+                console.log('Sound changed to:', e.target.value);
+                this.settings.selectedSound = e.target.value;
+            });
+        }
     }
 
-    // === МЕТОДЫ ТАЙМЕРА ===
+    switchTab(tabName) {
+        document.querySelectorAll(".nav-tab").forEach(tab => tab.classList.remove("active"));
+        document.querySelectorAll(".tab-content").forEach(content => content.classList.remove("active"));
+        document.querySelector(`[data-tab="${tabName}"]`).classList.add("active");
+        const tabContent = document.getElementById(`${tabName}-tab`);
+        if (tabContent) {
+            tabContent.classList.add("active");
+        }
+    }
+
+    initializeSettings() {
+        // Set input values
+        document.getElementById("work-duration").value = this.settings.workDuration;
+        document.getElementById("short-break-duration").value = this.settings.shortBreakDuration;
+        document.getElementById("long-break-duration").value = this.settings.longBreakDuration;
+        document.getElementById("sessions-until-long-break").value = this.settings.sessionsUntilLongBreak;
+        
+        // Set checkbox states
+        document.getElementById("sound-enabled").checked = this.settings.soundEnabled;
+        document.getElementById("auto-start-breaks").checked = this.settings.autoStartBreaks;
+        document.getElementById("auto-start-work").checked = this.settings.autoStartWork;
+
+        // Set sound selector
+        const soundSelect = document.getElementById('sound-select');
+        if (soundSelect) {
+            soundSelect.value = this.settings.selectedSound;
+        }
+    }
+
+    validateSettings(settings) {
+        if (settings.workDuration < 1 || settings.workDuration > 60) {
+            this.showNotification("⚠️ Длительность рабочего блока должна быть от 1 до 60 минут");
+            return false;
+        }
+        if (settings.shortBreakDuration < 1 || settings.shortBreakDuration > 30) {
+            this.showNotification("⚠️ Длительность короткого перерыва должна быть от 1 до 30 минут");
+            return false;
+        }
+        if (settings.longBreakDuration < 5 || settings.longBreakDuration > 60) {
+            this.showNotification("⚠️ Длительность длинного перерыва должна быть от 5 до 60 минут");
+            return false;
+        }
+        if (settings.sessionsUntilLongBreak < 2 || settings.sessionsUntilLongBreak > 8) {
+            this.showNotification("⚠️ Количество сессий должно быть от 2 до 8");
+            return false;
+        }
+        return true;
+    }
+
+    resetSettings() {
+        this.settings = { ...this.defaultSettings };
+        this.initializeSettings();
+        this.saveToStorage();
+        this.showNotification("🔄 Настройки сброшены к стандартным значениям");
+        
+        if (!this.isRunning) {
+            this.resetTimer();
+        }
+    }
 
     toggleTimer() {
-        if (!this.isRunning && !this.isPaused) {
-            this.startTimer();
-        } else if (this.isRunning) {
+        if (this.isRunning) {
             this.pauseTimer();
-        } else if (this.isPaused) {
-            this.resumeTimer();
+        } else {
+            this.startTimer();
         }
     }
 
     startTimer() {
         this.isRunning = true;
-        this.isPaused = false;
-        this.updateButton('pause');
+        this.updateButton();
+        this.lastUpdate = performance.now();
+        this.startTime = this.lastUpdate;
         
-        this.timer = setInterval(() => {
-            this.timeRemaining--;
-            this.updateDisplay();
+        const updateTimer = (currentTime) => {
+            if (!this.isRunning) return;
             
-            if (this.timeRemaining <= 0) {
+            const elapsed = (currentTime - this.lastUpdate) / 1000;
+            this.lastUpdate = currentTime;
+            
+            this.currentTime = Math.max(0, this.currentTime - elapsed);
+            
+            if (this.currentTime <= 0) {
                 this.completeSession();
+                return;
             }
-        }, 1000);
+            
+            this.updateDisplay();
+            this.updateProgress();
+            requestAnimationFrame(updateTimer);
+        };
+        
+        requestAnimationFrame(updateTimer);
     }
 
     pauseTimer() {
         this.isRunning = false;
-        this.isPaused = true;
         clearInterval(this.timer);
-        this.updateButton('resume');
-    }
-
-    resumeTimer() {
-        this.isRunning = true;
-        this.isPaused = false;
-        this.updateButton('pause');
-        this.startTimer();
+        this.updateButton();
     }
 
     resetTimer() {
-        clearInterval(this.timer);
-        this.isRunning = false;
-        this.isPaused = false;
-        this.setSessionDuration();
+        this.pauseTimer();
+        this.currentTime = this.getCurrentSessionDuration() * 60;
         this.updateDisplay();
-        this.updateButton('start');
+        this.updateProgress(true);
     }
 
     skipSession() {
-        clearInterval(this.timer);
+        if (this.currentSession === 'work' && this.isRunning) {
+            this.updateSessionStats(false);
+        }
+        this.pauseTimer();
         this.completeSession();
     }
 
     completeSession() {
-        clearInterval(this.timer);
-        this.isRunning = false;
-        this.isPaused = false;
-
-        // Сохраняем статистику для рабочих сессий
+        this.pauseTimer();
+        
         if (this.currentSession === 'work') {
             this.sessionsCompleted++;
-            this.updateSessionStats();
+            this.updateSessionStats(true);
         }
 
-        // Играем звук уведомления
         if (this.settings.soundEnabled) {
             this.playNotificationSound();
         }
 
-        // Показываем уведомление
         this.showNotification(this.getSessionCompleteMessage());
-
-        // Переключаемся на следующую сессию
         this.switchToNextSession();
+        this.checkAchievements();
 
-        // Автозапуск если включен
         if (this.shouldAutoStart()) {
             setTimeout(() => this.startTimer(), 3000);
-        } else {
-            this.updateButton('start');
         }
+
+        // Сохраняем статистику в Telegram Storage
+        this.saveStats();
     }
 
     switchToNextSession() {
@@ -208,491 +369,475 @@ class PomodoroTimer {
             this.currentSession = 'work';
         }
 
-        this.setSessionDuration();
+        this.currentTime = this.getCurrentSessionDuration() * 60;
         this.updateDisplay();
+        this.updateProgress();
+        this.updateSessionInfo();
     }
 
-    setSessionDuration() {
+    getCurrentSessionDuration() {
         switch (this.currentSession) {
-            case 'work':
-                this.totalTime = this.settings.workDuration * 60;
-                break;
-            case 'shortBreak':
-                this.totalTime = this.settings.shortBreakDuration * 60;
-                break;
-            case 'longBreak':
-                this.totalTime = this.settings.longBreakDuration * 60;
-                break;
-        }
-        this.timeRemaining = this.totalTime;
-    }
-
-    // === МЕТОДЫ ОТОБРАЖЕНИЯ ===
-
-    updateDisplay() {
-        // Обновляем время
-        const minutes = Math.floor(this.timeRemaining / 60);
-        const seconds = this.timeRemaining % 60;
-        this.timeDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-
-        // Обновляем тип сессии
-        this.sessionType.textContent = this.getSessionTypeText();
-
-        // Обновляем счетчик сессий
-        const currentCycle = Math.floor(this.sessionsCompleted / this.settings.sessionsUntilLongBreak) + 1;
-        const sessionInCycle = (this.sessionsCompleted % this.settings.sessionsUntilLongBreak) + 1;
-        this.sessionCount.textContent = `${sessionInCycle}/${this.settings.sessionsUntilLongBreak}`;
-
-        // Обновляем кольцо прогресса
-        this.updateProgressRing();
-
-        // Обновляем дневной прогресс
-        this.updateTodayDisplay();
-    }
-
-    updateProgressRing() {
-        const progress = 1 - (this.timeRemaining / this.totalTime);
-        const circumference = 2 * Math.PI * 130; // radius = 130
-        const strokeDashoffset = circumference * (1 - progress);
-        this.progressRing.style.strokeDashoffset = strokeDashoffset;
-
-        // Меняем цвет в зависимости от типа сессии
-        if (this.currentSession === 'work') {
-            this.progressRing.style.stroke = '#667eea';
-        } else {
-            this.progressRing.style.stroke = '#51cf66';
-        }
-    }
-
-    updateButton(state) {
-        const icon = this.startPauseBtn.querySelector('.btn-icon');
-        const text = this.startPauseBtn.childNodes[1];
-
-        switch (state) {
-            case 'start':
-                icon.textContent = '▶️';
-                text.textContent = ' Начать';
-                break;
-            case 'pause':
-                icon.textContent = '⏸️';
-                text.textContent = ' Пауза';
-                break;
-            case 'resume':
-                icon.textContent = '▶️';
-                text.textContent = ' Продолжить';
-                break;
-        }
-    }
-
-    // === МЕТОДЫ ВКЛАДОК ===
-
-    switchTab(tabName) {
-        // Обновляем активные вкладки
-        this.navTabs.forEach(tab => {
-            tab.classList.toggle('active', tab.dataset.tab === tabName);
-        });
-
-        // Показываем соответствующий контент
-        this.tabContents.forEach(content => {
-            content.classList.toggle('active', content.id === `${tabName}-tab`);
-        });
-
-        // Обновляем статистику при переходе на вкладку
-        if (tabName === 'stats') {
-            this.updateStats();
-        }
-    }
-
-    // === МЕТОДЫ НАСТРОЕК ===
-
-    updateSettingsInputs() {
-        this.workDurationInput.value = this.settings.workDuration;
-        this.shortBreakInput.value = this.settings.shortBreakDuration;
-        this.longBreakInput.value = this.settings.longBreakDuration;
-        this.sessionsInput.value = this.settings.sessionsUntilLongBreak;
-        this.soundEnabledInput.checked = this.settings.soundEnabled;
-        this.autoStartBreaksInput.checked = this.settings.autoStartBreaks;
-        this.autoStartWorkInput.checked = this.settings.autoStartWork;
-    }
-
-    saveSettings() {
-        const newSettings = {
-            workDuration: parseInt(this.workDurationInput.value),
-            shortBreakDuration: parseInt(this.shortBreakInput.value),
-            longBreakDuration: parseInt(this.longBreakInput.value),
-            sessionsUntilLongBreak: parseInt(this.sessionsInput.value),
-            soundEnabled: this.soundEnabledInput.checked,
-            autoStartBreaks: this.autoStartBreaksInput.checked,
-            autoStartWork: this.autoStartWorkInput.checked
-        };
-
-        // Валидация
-        if (newSettings.workDuration < 1 || newSettings.workDuration > 60) {
-            this.showNotification('❌ Рабочий блок должен быть от 1 до 60 минут');
-            return;
-        }
-
-        this.settings = newSettings;
-        this.saveSettingsToStorage();
-        
-        // Применяем новые настройки
-        if (!this.isRunning && !this.isPaused) {
-            this.setSessionDuration();
-            this.updateDisplay();
-        }
-
-        this.showNotification('✅ Настройки сохранены');
-    }
-
-    resetSettings() {
-        this.settings = { ...this.defaultSettings };
-        this.updateSettingsInputs();
-        this.saveSettingsToStorage();
-        
-        if (!this.isRunning && !this.isPaused) {
-            this.setSessionDuration();
-            this.updateDisplay();
-        }
-
-        this.showNotification('🔄 Настройки сброшены к стандартным');
-    }
-
-    // === МЕТОДЫ СТАТИСТИКИ ===
-
-    updateSessionStats() {
-        const today = new Date().toDateString();
-        
-        // Обновляем статистику за сегодня
-        if (this.stats.today.date !== today) {
-            this.stats.today = { pomodoros: 0, time: 0, date: today };
-        }
-        
-        this.stats.today.pomodoros++;
-        this.stats.today.time += this.settings.workDuration;
-
-        // Обновляем общую статистику
-        this.stats.total.pomodoros++;
-        this.stats.total.time += this.settings.workDuration;
-        this.stats.total.sessions++;
-        
-        if (!this.stats.total.firstSession) {
-            this.stats.total.firstSession = today;
-        }
-
-        // Обновляем недельную статистику
-        this.updateWeeklyStats();
-
-        // Сохраняем статистику
-        this.saveStatsToStorage();
-
-        // Проверяем достижения
-        this.checkAchievements();
-    }
-
-    updateWeeklyStats() {
-        const today = new Date();
-        const dayOfWeek = today.getDay();
-        
-        // Инициализируем массив недели если нужно
-        if (this.stats.week.length === 0) {
-            this.stats.week = Array(7).fill(0);
-        }
-
-        this.stats.week[dayOfWeek] = this.stats.today.pomodoros;
-    }
-
-    switchStatsPeriod(period) {
-        // Обновляем активную кнопку
-        this.periodBtns.forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.period === period);
-        });
-
-        // Обновляем отображение статистики
-        this.updateStatsDisplay(period);
-    }
-
-    updateStats() {
-        this.updateStatsDisplay('today');
-        this.updateChart();
-        this.updateDetailedStats();
-        this.updateAchievements();
-    }
-
-    updateStatsDisplay(period) {
-        let data;
-        
-        switch (period) {
-            case 'today':
-                data = {
-                    pomodoros: this.stats.today.pomodoros,
-                    time: this.stats.today.time,
-                    streak: this.calculateStreak(),
-                    efficiency: this.calculateEfficiency()
-                };
-                break;
-            case 'week':
-                data = {
-                    pomodoros: this.stats.week.reduce((a, b) => a + b, 0),
-                    time: this.stats.week.reduce((a, b) => a + b, 0) * this.settings.workDuration,
-                    streak: this.calculateStreak(),
-                    efficiency: this.calculateEfficiency()
-                };
-                break;
-            case 'month':
-                // Упрощенная логика для демо
-                data = {
-                    pomodoros: this.stats.total.pomodoros,
-                    time: this.stats.total.time,
-                    streak: this.calculateStreak(),
-                    efficiency: this.calculateEfficiency()
-                };
-                break;
-            case 'all':
-                data = {
-                    pomodoros: this.stats.total.pomodoros,
-                    time: this.stats.total.time,
-                    streak: this.calculateStreak(),
-                    efficiency: this.calculateEfficiency()
-                };
-                break;
-        }
-
-        document.getElementById('period-pomodoros').textContent = data.pomodoros;
-        document.getElementById('period-time').textContent = data.time;
-        document.getElementById('period-streak').textContent = data.streak;
-        document.getElementById('period-efficiency').textContent = data.efficiency + '%';
-    }
-
-    updateTodayDisplay() {
-        document.getElementById('today-pomodoros').textContent = this.stats.today.pomodoros;
-        document.getElementById('today-time').textContent = this.stats.today.time;
-    }
-
-    updateChart() {
-        const chartBars = document.querySelectorAll('.chart-bar');
-        const maxValue = Math.max(...this.stats.week, 1);
-
-        chartBars.forEach((bar, index) => {
-            const value = this.stats.week[index] || 0;
-            const height = (value / maxValue) * 100;
-            bar.style.height = Math.max(height, 5) + '%';
-        });
-    }
-
-    updateDetailedStats() {
-        document.getElementById('avg-session-time').textContent = this.settings.workDuration + ' мин';
-        document.getElementById('total-sessions').textContent = this.stats.total.sessions;
-        document.getElementById('first-session').textContent = this.stats.total.firstSession || 'Сегодня';
-        document.getElementById('best-day').textContent = this.getBestDay();
-    }
-
-    // === МЕТОДЫ ДОСТИЖЕНИЙ ===
-
-    checkAchievements() {
-        const achievements = [
-            {
-                id: 'first-pomodoro',
-                condition: () => this.stats.total.pomodoros >= 1,
-                icon: '🥇',
-                text: 'Первый помидор'
-            },
-            {
-                id: 'streak-5',
-                condition: () => this.calculateStreak() >= 5,
-                icon: '🔥',
-                text: '5 дней подряд'
-            },
-            {
-                id: 'hundred-pomodoros',
-                condition: () => this.stats.total.pomodoros >= 100,
-                icon: '💯',
-                text: '100 помидоров'
-            }
-        ];
-
-        achievements.forEach(achievement => {
-            if (achievement.condition() && !this.stats.achievements.includes(achievement.id)) {
-                this.stats.achievements.push(achievement.id);
-                this.showNotification(`🏆 Достижение: ${achievement.text}`);
-            }
-        });
-
-        this.saveStatsToStorage();
-    }
-
-    updateAchievements() {
-        const achievementElements = document.querySelectorAll('.achievement');
-        
-        achievementElements.forEach((element, index) => {
-            const achievementIds = ['first-pomodoro', 'streak-5', 'hundred-pomodoros'];
-            const isUnlocked = this.stats.achievements.includes(achievementIds[index]);
-            
-            element.classList.toggle('locked', !isUnlocked);
-            element.classList.toggle('unlocked', isUnlocked);
-        });
-    }
-
-    resetStats() {
-        if (confirm('Вы уверены, что хотите сбросить всю статистику?')) {
-            this.stats = {
-                today: { pomodoros: 0, time: 0, date: new Date().toDateString() },
-                week: [],
-                total: { pomodoros: 0, time: 0, sessions: 0, firstSession: null },
-                achievements: []
-            };
-            
-            this.saveStatsToStorage();
-            this.updateStats();
-            this.showNotification('🗑️ Статистика сброшена');
-        }
-    }
-
-    // === ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ===
-
-    getSessionTypeText() {
-        switch (this.currentSession) {
-            case 'work':
-                return 'Рабочий блок';
-            case 'shortBreak':
-                return 'Короткий перерыв';
-            case 'longBreak':
-                return 'Длинный перерыв';
-            default:
-                return 'Рабочий блок';
-        }
-    }
-
-    getSessionCompleteMessage() {
-        switch (this.currentSession) {
-            case 'work':
-                return '🍅 Рабочий блок завершен! Время отдохнуть.';
-            case 'shortBreak':
-                return '☕ Перерыв окончен! Пора работать.';
-            case 'longBreak':
-                return '🎉 Длинный перерыв завершен! Новый цикл начинается.';
-            default:
-                return '✅ Сессия завершена!';
+            case 'work': return this.settings.workDuration;
+            case 'shortBreak': return this.settings.shortBreakDuration;
+            case 'longBreak': return this.settings.longBreakDuration;
+            default: return this.settings.workDuration;
         }
     }
 
     shouldAutoStart() {
         return (this.currentSession === 'work' && this.settings.autoStartWork) ||
-               ((this.currentSession === 'shortBreak' || this.currentSession === 'longBreak') && this.settings.autoStartBreaks);
+               ((this.currentSession === 'shortBreak' || this.currentSession === 'longBreak') && 
+                this.settings.autoStartBreaks);
     }
 
-    calculateStreak() {
-        // Упрощенная логика - возвращаем количество дней с первой сессии
-        if (!this.stats.total.firstSession) return 0;
+    updateDisplay() {
+        const minutes = Math.floor(this.currentTime / 60);
+        const seconds = Math.floor(this.currentTime % 60);
+        const display = `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+        document.getElementById("time-display").textContent = display;
         
-        const firstDate = new Date(this.stats.total.firstSession);
-        const today = new Date();
-        const diffTime = Math.abs(today - firstDate);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        
-        return Math.min(diffDays, 30); // Максимум 30 дней для демо
-    }
-
-    calculateEfficiency() {
-        const totalSessions = this.stats.total.sessions;
-        if (totalSessions === 0) return 0;
-        
-        // Простая формула: процент завершенных полных сессий
-        return Math.round((this.stats.total.pomodoros / totalSessions) * 100);
-    }
-
-    getBestDay() {
-        const days = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
-        const maxIndex = this.stats.week.indexOf(Math.max(...this.stats.week));
-        return maxIndex >= 0 ? days[maxIndex] : 'Сегодня';
-    }
-
-    playNotificationSound() {
-        if (!this.settings.soundEnabled) return;
-        
-        // Создаем простой звуковой сигнал
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        
-        oscillator.frequency.value = this.currentSession === 'work' ? 800 : 400;
-        oscillator.type = 'sine';
-        
-        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-        
-        oscillator.start(audioContext.currentTime);
-        oscillator.stop(audioContext.currentTime + 0.5);
-    }
-
-    showNotification(message) {
-        this.notificationText.textContent = message;
-        this.notification.classList.remove('hidden');
-        this.notification.classList.add('show');
-        
-        setTimeout(() => {
-            this.notification.classList.remove('show');
-            this.notification.classList.add('hidden');
-        }, 3000);
-    }
-
-    // === МЕТОДЫ СОХРАНЕНИЯ/ЗАГРУЗКИ ===
-
-    loadSettings() {
-        const savedSettings = this.getFromStorage('pomodoro_settings');
-        if (savedSettings) {
-            this.settings = { ...this.defaultSettings, ...savedSettings };
-        }
-    }
-
-    saveSettingsToStorage() {
-        this.saveToStorage('pomodoro_settings', this.settings);
-    }
-
-    loadStats() {
-        const savedStats = this.getFromStorage('pomodoro_stats');
-        if (savedStats) {
-            this.stats = { ...this.stats, ...savedStats };
-        }
-    }
-
-    saveStatsToStorage() {
-        this.saveToStorage('pomodoro_stats', this.stats);
-    }
-
-    saveToStorage(key, data) {
-        if (window.Telegram?.WebApp?.CloudStorage) {
-            window.Telegram.WebApp.CloudStorage.setItem(key, JSON.stringify(data));
+        // Update the label text based on remaining time
+        const timerLabel = document.querySelector('.timer-label');
+        if (minutes === 0) {
+            timerLabel.textContent = 'секунд осталось';
         } else {
-            localStorage.setItem(key, JSON.stringify(data));
+            timerLabel.textContent = 'минут осталось';
         }
+        
+        this.updateSessionInfo();
     }
 
-    getFromStorage(key) {
-        if (window.Telegram?.WebApp?.CloudStorage) {
-            return new Promise((resolve) => {
-                window.Telegram.WebApp.CloudStorage.getItem(key, (err, result) => {
-                    try {
-                        resolve(result ? JSON.parse(result) : null);
-                    } catch (e) {
-                        resolve(null);
-                    }
-                });
-            });
-        } else {
-            try {
-                const item = localStorage.getItem(key);
-                return item ? JSON.parse(item) : null;
-            } catch (e) {
-                return null;
+    updateSessionInfo() {
+        document.getElementById("session-type").textContent = this.getSessionTypeText();
+        document.getElementById("session-count").textContent = 
+            `${(this.sessionsCompleted % this.settings.sessionsUntilLongBreak) + 1}/${this.settings.sessionsUntilLongBreak}`;
+    }
+
+    updateProgress(isInitial = false) {
+        const progressRing = document.querySelector('.progress-ring-fill');
+        if (progressRing) {
+            const radius = 130;
+            const circumference = 2 * Math.PI * radius;
+            const totalTime = this.getCurrentSessionDuration() * 60;
+            const progress = (totalTime - this.currentTime) / totalTime;
+            const offset = circumference - (progress * circumference);
+            
+            if (isInitial) {
+                // Remove transition for initial state to prevent animation
+                progressRing.style.transition = 'none';
+                progressRing.style.strokeDashoffset = offset;
+                progressRing.style.stroke = this.currentSession === 'work' ? '#667eea' : '#51cf66';
+                
+                // Force reflow
+                progressRing.getBoundingClientRect();
+                
+                // Restore transition
+                progressRing.style.transition = 'stroke-dashoffset 0.1s linear, stroke 0.3s ease';
+            } else {
+                progressRing.style.strokeDashoffset = offset;
+                progressRing.style.stroke = this.currentSession === 'work' ? '#667eea' : '#51cf66';
             }
         }
     }
+
+    updateButton() {
+        const btn = document.getElementById("start-pause-btn");
+        if (this.isRunning) {
+            btn.innerHTML = '<span class="btn-icon">⏸️</span> Пауза';
+        } else {
+            btn.innerHTML = '<span class="btn-icon">▶️</span> Начать';
+        }
+    }
+
+    getSessionTypeText() {
+        switch (this.currentSession) {
+            case 'work': return 'Рабочий блок';
+            case 'shortBreak': return 'Короткий перерыв';
+            case 'longBreak': return 'Длинный перерыв';
+            default: return 'Рабочий блок';
+        }
+    }
+
+    getSessionCompleteMessage() {
+        switch (this.currentSession) {
+            case 'work': return '🍅 Рабочий блок завершен! Время отдохнуть.';
+            case 'shortBreak': return '☕ Перерыв окончен! Пора работать.';
+            case 'longBreak': return '🎉 Длинный перерыв завершен! Новый цикл начинается.';
+            default: return '✅ Сессия завершена!';
+        }
+    }
+
+    async playNotificationSound() {
+        if (!this.settings.soundEnabled) {
+            console.log('Sound is disabled in settings');
+            return;
+        }
+
+        try {
+            // Убеждаемся, что AudioContext инициализирован
+            if (!this.audioContext) {
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                console.log('AudioContext created on playback');
+            }
+
+            // Проверяем состояние AudioContext
+            if (this.audioContext.state === 'suspended') {
+                await this.audioContext.resume();
+                console.log('AudioContext resumed');
+            }
+
+            const selectedSound = this.settings.selectedSound;
+            console.log('Playing sound:', selectedSound);
+
+            if (!this.soundBuffers[selectedSound]) {
+                console.error('Sound buffer not found for:', selectedSound);
+                return;
+            }
+
+            const source = this.audioContext.createBufferSource();
+            const gainNode = this.audioContext.createGain();
+            
+            source.buffer = this.soundBuffers[selectedSound];
+            gainNode.gain.value = 0.5; // 50% громкости
+            
+            source.connect(gainNode);
+            gainNode.connect(this.audioContext.destination);
+            
+            source.start(0);
+            console.log('Sound playback started');
+        } catch (error) {
+            console.error('Error playing sound:', error);
+        }
+    }
+
+    showNotification(message) {
+        const notification = document.getElementById("notification");
+        const notificationText = document.getElementById("notification-text");
+        
+        notificationText.textContent = message;
+        notification.classList.remove("hidden");
+        notification.classList.add("show");
+        
+        setTimeout(() => {
+            notification.classList.remove("show");
+            setTimeout(() => notification.classList.add("hidden"), 300);
+        }, 3000);
+    }
+
+    saveToStorage() {
+        localStorage.setItem('pomodoro_settings', JSON.stringify(this.settings));
+    }
+
+    async initSounds() {
+        try {
+            // Инициализируем аудио контекст при взаимодействии пользователя
+            const initAudioContext = () => {
+                if (!this.audioContext) {
+                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    console.log('AudioContext initialized');
+                }
+                document.removeEventListener('click', initAudioContext);
+            };
+            document.addEventListener('click', initAudioContext);
+            
+            // Загружаем все звуки
+            for (const [key, sound] of Object.entries(SOUNDS)) {
+                try {
+                    console.log(`Loading sound: ${sound.file}`);
+                    const response = await fetch(`sounds/${sound.file}`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const arrayBuffer = await response.arrayBuffer();
+                    if (!this.audioContext) {
+                        this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    }
+                    this.soundBuffers[key] = await this.audioContext.decodeAudioData(arrayBuffer);
+                    console.log(`Sound loaded successfully: ${sound.file}`);
+                } catch (error) {
+                    console.error(`Error loading sound ${sound.file}:`, error);
+                }
+            }
+        } catch (error) {
+            console.error('Error initializing audio system:', error);
+        }
+    }
+
+    createSoundSelector() {
+        const settingsContainer = document.querySelector('.settings-container');
+        const soundGroup = document.createElement('div');
+        soundGroup.className = 'setting-group';
+        
+        const label = document.createElement('label');
+        label.textContent = 'Звук уведомления';
+        
+        const select = document.createElement('select');
+        select.id = 'sound-select';
+        select.className = 'sound-select';
+        
+        Object.entries(SOUNDS).forEach(([key, sound]) => {
+            const option = document.createElement('option');
+            option.value = key;
+            option.textContent = sound.name;
+            select.appendChild(option);
+        });
+        
+        const testButton = document.createElement('button');
+        testButton.className = 'control-btn secondary';
+        testButton.innerHTML = '<span class="btn-icon">🔊</span><span class="btn-text">Тест</span>';
+        testButton.onclick = () => {
+            console.log('Test button clicked');
+            this.playNotificationSound();
+        };
+        
+        soundGroup.appendChild(label);
+        soundGroup.appendChild(select);
+        soundGroup.appendChild(testButton);
+        
+        const saveButton = document.querySelector('#save-settings');
+        settingsContainer.insertBefore(soundGroup, saveButton);
+        
+        select.addEventListener('change', (e) => {
+            console.log('Sound changed to:', e.target.value);
+            this.settings.selectedSound = e.target.value;
+        });
+        
+        return select;
+    }
+
+    updateSessionStats(completed = true) {
+        const today = new Date().toDateString();
+        
+        // Reset today's stats if it's a new day
+        if (this.stats.today.date !== today) {
+            this.stats.today = {
+                pomodoros: 0,
+                time: 0,
+                date: today,
+                completed: 0,
+                interrupted: 0
+            };
+        }
+
+        // Update today's stats
+        if (completed) {
+            this.stats.today.pomodoros++;
+            this.stats.today.completed++;
+            this.stats.today.time += this.settings.workDuration;
+        } else {
+            this.stats.today.interrupted++;
+        }
+
+        // Update weekly stats
+        const dayOfWeek = new Date().getDay();
+        const adjustedDay = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Convert to Monday-based
+        if (completed) {
+            this.stats.week[adjustedDay].pomodoros++;
+            this.stats.week[adjustedDay].time += this.settings.workDuration;
+        }
+
+        // Update total stats
+        if (completed) {
+            this.stats.total.pomodoros++;
+            this.stats.total.time += this.settings.workDuration;
+            this.stats.total.sessions++;
+        }
+
+        // Update first session
+        if (!this.stats.total.firstSession) {
+            this.stats.total.firstSession = new Date().toISOString();
+        }
+
+        // Update best day
+        if (this.stats.today.pomodoros > (this.stats.total.bestDay.pomodoros || 0)) {
+            this.stats.total.bestDay = {
+                date: today,
+                pomodoros: this.stats.today.pomodoros
+            };
+        }
+
+        // Update streak
+        if (this.stats.today.pomodoros > 0) {
+            if (this.stats.total.currentStreak === 0) {
+                this.stats.total.currentStreak = 1;
+            } else {
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                const yesterdayString = yesterday.toDateString();
+                
+                if (this.stats.today.date === today && this.stats.week[adjustedDay > 0 ? adjustedDay - 1 : 6].pomodoros > 0) {
+                    this.stats.total.currentStreak++;
+                }
+            }
+        }
+
+        // Update best streak
+        if (this.stats.total.currentStreak > this.stats.total.bestStreak) {
+            this.stats.total.bestStreak = this.stats.total.currentStreak;
+        }
+
+        this.saveStats();
+        this.updateStats();
+    }
+
+    updateStats(period = 'today') {
+        let stats;
+        switch (period) {
+            case 'today':
+                stats = this.stats.today;
+                document.getElementById('period-pomodoros').textContent = stats.pomodoros;
+                document.getElementById('period-time').textContent = stats.time;
+                document.getElementById('period-streak').textContent = this.stats.total.currentStreak;
+                document.getElementById('period-efficiency').textContent = 
+                    stats.completed > 0 ? 
+                    Math.round((stats.completed / (stats.completed + stats.interrupted)) * 100) + '%' : 
+                    '0%';
+                break;
+            case 'week':
+                stats = this.stats.week.reduce((acc, day) => ({
+                    pomodoros: acc.pomodoros + day.pomodoros,
+                    time: acc.time + day.time
+                }), { pomodoros: 0, time: 0 });
+                document.getElementById('period-pomodoros').textContent = stats.pomodoros;
+                document.getElementById('period-time').textContent = stats.time;
+                document.getElementById('period-streak').textContent = this.stats.total.bestStreak;
+                break;
+            case 'month':
+            case 'all':
+                stats = this.stats.total;
+                document.getElementById('period-pomodoros').textContent = stats.pomodoros;
+                document.getElementById('period-time').textContent = stats.time;
+                document.getElementById('period-streak').textContent = stats.bestStreak;
+                break;
+        }
+
+        // Update weekly chart
+        this.updateWeeklyChart();
+
+        // Update detailed stats
+        document.getElementById('avg-session-time').textContent = 
+            this.stats.total.sessions > 0 ? 
+            Math.round(this.stats.total.time / this.stats.total.sessions) + ' мин' : 
+            '0 мин';
+        
+        document.getElementById('best-day').textContent = 
+            this.stats.total.bestDay.date ? 
+            new Date(this.stats.total.bestDay.date).toLocaleDateString('ru-RU') + 
+            ` (${this.stats.total.bestDay.pomodoros} помидоров)` : 
+            'Нет данных';
+        
+        document.getElementById('total-sessions').textContent = this.stats.total.sessions;
+        
+        document.getElementById('first-session').textContent = 
+            this.stats.total.firstSession ? 
+            new Date(this.stats.total.firstSession).toLocaleDateString('ru-RU') : 
+            'Сегодня';
+    }
+
+    updateWeeklyChart() {
+        const maxPomodoros = Math.max(...this.stats.week.map(day => day.pomodoros));
+        this.stats.week.forEach((day, index) => {
+            const bar = document.querySelector(`[data-day="${index}"]`);
+            const height = maxPomodoros > 0 ? (day.pomodoros / maxPomodoros) * 100 : 0;
+            bar.style.height = `${height}%`;
+        });
+    }
+
+    checkAchievements() {
+        const achievements = this.stats.achievements;
+        const stats = this.stats.total;
+        
+        // First Pomodoro
+        if (!achievements.first && stats.pomodoros > 0) {
+            achievements.first = true;
+            this.unlockAchievement('first');
+        }
+        
+        // 5-day streak
+        if (!achievements.streak && stats.currentStreak >= 5) {
+            achievements.streak = true;
+            this.unlockAchievement('streak');
+        }
+        
+        // 100 Pomodoros
+        if (!achievements.master && stats.pomodoros >= 100) {
+            achievements.master = true;
+            this.unlockAchievement('master');
+        }
+        
+        // 90% efficiency
+        const efficiency = this.stats.today.completed / (this.stats.today.completed + this.stats.today.interrupted);
+        if (!achievements.efficient && efficiency >= 0.9 && this.stats.today.completed >= 10) {
+            achievements.efficient = true;
+            this.unlockAchievement('efficient');
+        }
+        
+        this.saveStats();
+    }
+
+    unlockAchievement(id) {
+        const achievement = document.querySelector(`[data-achievement="${id}"]`);
+        if (achievement) {
+            achievement.classList.remove('locked');
+            this.showNotification('🏆 Новое достижение разблокировано!');
+        }
+    }
+
+    resetStats() {
+        this.stats = {
+            today: { 
+                pomodoros: 0, 
+                time: 0, 
+                date: new Date().toDateString(),
+                completed: 0,
+                interrupted: 0
+            },
+            week: Array(7).fill().map(() => ({ pomodoros: 0, time: 0 })),
+            total: {
+                pomodoros: 0,
+                time: 0,
+                sessions: 0,
+                firstSession: null,
+                bestDay: { date: null, pomodoros: 0 },
+                currentStreak: 0,
+                bestStreak: 0
+            },
+            achievements: {
+                first: false,
+                streak: false,
+                master: false,
+                efficient: false
+            }
+        };
+        
+        this.saveStats();
+        this.updateStats();
+        
+        // Reset achievements UI
+        document.querySelectorAll('.achievement').forEach(achievement => {
+            achievement.classList.add('locked');
+        });
+        
+        this.showNotification('📊 Статистика сброшена');
+    }
+
+    async saveStats() {
+        await this.saveTelegramStorage('pomodoro_stats', this.stats);
+    }
+
+    async loadStats() {
+        const stats = await this.loadTelegramStorage('pomodoro_stats', this.stats);
+        this.stats = { ...this.stats, ...stats };
+        
+        Object.entries(this.stats.achievements).forEach(([id, unlocked]) => {
+            if (unlocked) {
+                this.unlockAchievement(id);
+            }
+        });
+    }
 }
 
-// Инициализация приложения
-document.addEventListener('DOMContentLoaded', () => {
-    new PomodoroTimer();
+// Initialize the timer when the document is ready
+document.addEventListener("DOMContentLoaded", function() {
+    window.pomodoroTimer = new PomodoroTimer();
 }); 
