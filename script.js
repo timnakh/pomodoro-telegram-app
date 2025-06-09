@@ -1,3 +1,5 @@
+// @charset "UTF-8";
+
 // Отладочные сообщения
 console.log('=== Debug Info ===');
 console.log('Script loading...');
@@ -114,6 +116,14 @@ class PomodoroTimer {
         try {
             // Mark as initialized first to prevent double initialization
             this.initialized = true;
+
+            // Очистка дублирующихся селекторов звука при старте
+            const duplicateSelectors = document.querySelectorAll('.setting-group.sound-selector');
+            duplicateSelectors.forEach((selector, index) => {
+                if (index > 0) { // Оставляем только первый селектор
+                    selector.remove();
+                }
+            });
 
             // Initialize Telegram Web App if available
             if (window.Telegram?.WebApp?.ready) {
@@ -440,6 +450,10 @@ class PomodoroTimer {
     }
 
     resetSettings() {
+        // Очищаем дублирующиеся селекторы перед сбросом
+        const duplicateSelectors = document.querySelectorAll('.setting-group.sound-selector');
+        duplicateSelectors.forEach(selector => selector.remove());
+
         this.settings = { ...this.defaultSettings };
         this.initializeSettings();
         this.saveToStorage();
