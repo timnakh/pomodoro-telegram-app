@@ -209,8 +209,16 @@ class PomodoroTimer {
             this.playNotificationSound();
         };
 
-        testButton.addEventListener('click', handleTestClick);
-        testButton.addEventListener('touchend', handleTestClick);
+        // Привязываем контекст this к обработчику
+        const boundHandleTestClick = handleTestClick.bind(this);
+
+        testButton.addEventListener('click', boundHandleTestClick);
+        testButton.addEventListener('touchend', boundHandleTestClick);
+
+        // Делаем кнопку явно кликабельной
+        testButton.style.pointerEvents = 'auto';
+        testButton.style.cursor = 'pointer';
+        testButton.disabled = false;
 
         return select;
     }
