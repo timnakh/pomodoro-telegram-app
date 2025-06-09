@@ -8,16 +8,46 @@ console.log("Pomodoro Timer Loading...");
 
 // Звуки для уведомлений
 const SOUNDS = {
-    sound1: { name: '🌪️ Волшебный вжух', file: 'sound1.wav' },
-    sound2: { name: '🕹️ Геймовер', file: 'sound2.wav' },
-    sound3: { name: '🔔 Колокольчик', file: 'sound3.wav' },
-    sound4: { name: '🎺 Весёлый свисток', file: 'sound4.wav' },
-    sound5: { name: '✨ Правильный ответ', file: 'sound5.wav' },
-    sound6: { name: '💫 Быстрый взмах', file: 'sound6.wav' },
-    sound7: { name: '👾 Ретро-уведомление', file: 'sound7.wav' },
-    sound8: { name: '🛸 Космический клик', file: 'sound8.wav' },
-    sound9: { name: '🤧 Апчхи!', file: 'sound9.wav' },
-    sound10: { name: '🚀 Запуск системы', file: 'sound10.wav' }
+    'sound1': { 
+        name: '🌪️ Волшебный вжух', 
+        file: 'sound1.wav' 
+    },
+    'sound2': { 
+        name: '🕹️ Геймовер', 
+        file: 'sound2.wav' 
+    },
+    'sound3': { 
+        name: '🎺 Фанфары', 
+        file: 'sound3.wav' 
+    },
+    'sound4': { 
+        name: '🎵 Весёлый свисток', 
+        file: 'sound4.wav' 
+    },
+    'sound5': { 
+        name: '✨ Правильный ответ', 
+        file: 'sound5.wav' 
+    },
+    'sound6': { 
+        name: '💫 Быстрый взмах', 
+        file: 'sound6.wav' 
+    },
+    'sound7': { 
+        name: '👾 Ретро-уведомление', 
+        file: 'sound7.wav' 
+    },
+    'sound8': { 
+        name: '🛸 Космический клик', 
+        file: 'sound8.wav' 
+    },
+    'sound9': { 
+        name: '🤧 Апчхи!', 
+        file: 'sound9.wav' 
+    },
+    'sound10': { 
+        name: '🚀 Запуск системы', 
+        file: 'sound10.wav' 
+    }
 };
 
 class PomodoroTimer {
@@ -343,33 +373,44 @@ class PomodoroTimer {
         document.getElementById("auto-start-breaks").checked = this.settings.autoStartBreaks;
         document.getElementById("auto-start-work").checked = this.settings.autoStartWork;
 
-        // Create and initialize sound selector
-        this.createSoundSelector();
+        // Создаем селектор звука только если его еще нет
+        if (!document.getElementById('sound-select')) {
+            this.createSoundSelector();
+        } else {
+            // Если селектор уже есть, просто обновляем его значение
+            const soundSelect = document.getElementById('sound-select');
+            if (soundSelect) {
+                soundSelect.value = this.settings.selectedSound;
+            }
+        }
     }
 
     createSoundSelector() {
-        // Удаляем существующие селекторы звука, если они есть
-        const existingSoundGroups = document.querySelectorAll('.setting-group.sound-selector');
-        existingSoundGroups.forEach(group => group.remove());
+        // Сначала найдем все существующие селекторы и удалим их
+        document.querySelectorAll('.setting-group.sound-selector').forEach(el => el.remove());
+        document.querySelectorAll('#sound-select').forEach(el => el.closest('.setting-group')?.remove());
 
-        // Find the container for sound settings
-        const soundEnabledGroup = document.getElementById("sound-enabled").closest('.setting-group');
-        if (!soundEnabledGroup) return;
+        // Найдем группу с чекбоксом включения звука
+        const soundEnabledGroup = document.getElementById("sound-enabled")?.closest('.setting-group');
+        if (!soundEnabledGroup) {
+            console.error('Sound enabled checkbox group not found');
+            return;
+        }
 
-        // Create sound selector group
+        // Создаем новую группу для селектора звука
         const soundGroup = document.createElement('div');
         soundGroup.className = 'setting-group sound-selector';
         
-        // Create label
+        // Создаем метку
         const label = document.createElement('label');
         label.textContent = 'Звук уведомления';
         
-        // Create select element
+        // Создаем селектор
         const select = document.createElement('select');
         select.id = 'sound-select';
         select.className = 'sound-select';
         
-        // Add sound options
+        // Добавляем опции звуков
         Object.entries(SOUNDS).forEach(([key, sound]) => {
             const option = document.createElement('option');
             option.value = key;
@@ -380,53 +421,39 @@ class PomodoroTimer {
             select.appendChild(option);
         });
         
-        // Create test button
+        // Создаем кнопку тестирования
         const testButton = document.createElement('button');
         testButton.id = 'test-sound';
         testButton.className = 'control-btn secondary';
         testButton.innerHTML = '<span class="btn-icon">🔊</span><span class="btn-text">Тест</span>';
         
-        // Add elements to group
+        // Собираем группу
         soundGroup.appendChild(label);
         soundGroup.appendChild(select);
         soundGroup.appendChild(testButton);
         
-        // Insert after sound enabled checkbox
-        soundEnabledGroup.parentNode.insertBefore(soundGroup, soundEnabledGroup.nextSibling);
+        // Вставляем после группы с чекбоксом
+        if (soundEnabledGroup.nextSibling) {
+            soundEnabledGroup.parentNode.insertBefore(soundGroup, soundEnabledGroup.nextSibling);
+        } else {
+            soundEnabledGroup.parentNode.appendChild(soundGroup);
+        }
         
-        // Add change event listener
+        // Добавляем обработчик изменения
         select.addEventListener('change', (e) => {
             console.log('Sound changed to:', e.target.value);
             this.settings.selectedSound = e.target.value;
         });
 
-        // Now that the button exists, we can bind its event
-        const bindButton = (id, handler) => {
-            const btn = document.getElementById(id);
-            if (!btn) {
-                console.error(`Button ${id} not found!`);
-                return;
-            }
-            
-            const handleEvent = (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                handler.call(this);
-            };
-
-            btn.addEventListener('click', handleEvent);
-            btn.addEventListener('touchend', handleEvent);
-            
-            btn.disabled = false;
-            btn.style.pointerEvents = 'auto';
-            btn.style.cursor = 'pointer';
-        };
-
-        // Bind test sound button
-        bindButton('test-sound', () => {
+        // Добавляем обработчик для кнопки тест
+        testButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
             console.log('Test sound button clicked');
             this.playNotificationSound();
         });
+
+        return select;
     }
 
     validateSettings(settings) {
