@@ -488,6 +488,17 @@ class PomodoroTimer {
 
     async loadSettings() {
         try {
+            // Пробуем загрузить из Telegram CloudStorage
+            if (window.Telegram?.WebApp?.CloudStorage) {
+                const cloudSettings = await window.Telegram.WebApp.CloudStorage.getItem('pomodoroSettings');
+                if (cloudSettings) {
+                    this.settings = { ...this.defaultSettings, ...JSON.parse(cloudSettings) };
+                    console.log('Settings loaded from Telegram Cloud:', this.settings);
+                    return;
+                }
+            }
+            
+            // Если нет CloudStorage или данных в нем, используем localStorage
             const savedSettings = localStorage.getItem('pomodoroSettings');
             if (savedSettings) {
                 this.settings = { ...this.defaultSettings, ...JSON.parse(savedSettings) };
@@ -501,16 +512,55 @@ class PomodoroTimer {
 
     async saveSettings() {
         try {
-            localStorage.setItem('pomodoroSettings', JSON.stringify(this.settings));
+            const settingsString = JSON.stringify(this.settings);
+            
+            // Сохраняем в Telegram CloudStorage
+            if (window.Telegram?.WebApp?.CloudStorage) {
+                await window.Telegram.WebApp.CloudStorage.setItem('pomodoroSettings', settingsString);
+                console.log('Settings saved to Telegram Cloud');
+            }
+            
+            // Дублируем в localStorage для офлайн доступа
+            localStorage.setItem('pomodoroSettings', settingsString);
             console.log('Settings saved:', this.settings);
             this.showNotification('Настройки сохранены');
         } catch (error) {
             console.error('Error saving settings:', error);
+            this.showNotification('Ошибка при сохранении настроек');
         }
     }
 
     async loadStats() {
         try {
+            // Пробуем загрузить из Telegram CloudStorage
+            if (window.Telegram?.WebApp?.CloudStorage) {
+                const cloudStats = await window.Telegram.WebApp.CloudStorage.getItem('pomodoroStats');
+                if (cloudStats) {
+                    this.stats = JSON.parse(cloudStats);
+                    
+                    // Проверяем, не начался ли новый день
+                    const today = new Date().toDateString();
+                    if (this.stats.today.date !== today) {
+                        // Обновляем недельную статистику
+                        const dayIndex = new Date().getDay();
+                        this.stats.week[dayIndex] = { pomodoros: 0, time: 0 };
+                        
+                        // Сбрасываем дневную статистику
+                        this.stats.today = {
+                            pomodoros: 0,
+                            time: 0,
+                            date: today,
+                            completed: 0,
+                            interrupted: 0
+                        };
+                    }
+                    
+                    console.log('Stats loaded from Telegram Cloud:', this.stats);
+                    return;
+                }
+            }
+            
+            // Если нет CloudStorage или данных в нем, используем localStorage
             const savedStats = localStorage.getItem('pomodoroStats');
             if (savedStats) {
                 this.stats = JSON.parse(savedStats);
@@ -523,7 +573,16 @@ class PomodoroTimer {
 
     async saveStats() {
         try {
-            localStorage.setItem('pomodoroStats', JSON.stringify(this.stats));
+            const statsString = JSON.stringify(this.stats);
+            
+            // Сохраняем в Telegram CloudStorage
+            if (window.Telegram?.WebApp?.CloudStorage) {
+                await window.Telegram.WebApp.CloudStorage.setItem('pomodoroStats', statsString);
+                console.log('Stats saved to Telegram Cloud');
+            }
+            
+            // Дублируем в localStorage для офлайн доступа
+            localStorage.setItem('pomodoroStats', statsString);
             console.log('Stats saved:', this.stats);
         } catch (error) {
             console.error('Error saving stats:', error);
