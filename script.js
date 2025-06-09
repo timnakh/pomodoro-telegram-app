@@ -301,5 +301,159 @@ class PomodoroTimer {
         }
     }
 
+    bindEvents() {
+        console.log('Binding events...');
+        
+        // Привязываем обработчики к основным кнопкам управления таймером
+        const startPauseBtn = document.getElementById('start-pause-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const skipBtn = document.getElementById('skip-btn');
+
+        const handleStartPause = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (this.isRunning) {
+                this.pauseTimer();
+            } else {
+                this.startTimer();
+            }
+        };
+
+        const handleReset = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.resetTimer();
+        };
+
+        const handleSkip = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.skipSession();
+        };
+
+        // Добавляем обработчики для разных типов устройств
+        ['click', 'touchstart'].forEach(eventType => {
+            startPauseBtn?.addEventListener(eventType, handleStartPause.bind(this), { passive: false });
+            resetBtn?.addEventListener(eventType, handleReset.bind(this), { passive: false });
+            skipBtn?.addEventListener(eventType, handleSkip.bind(this), { passive: false });
+        });
+
+        // Привязываем обработчики к вкладкам
+        const tabs = document.querySelectorAll('.nav-tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        const handleTabClick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const targetTab = e.currentTarget.getAttribute('data-tab');
+            
+            // Обновляем активную вкладку
+            tabs.forEach(tab => {
+                tab.classList.toggle('active', tab.getAttribute('data-tab') === targetTab);
+            });
+            
+            // Показываем соответствующий контент
+            tabContents.forEach(content => {
+                content.classList.toggle('active', content.id === `${targetTab}-tab`);
+            });
+        };
+
+        tabs.forEach(tab => {
+            ['click', 'touchstart'].forEach(eventType => {
+                tab.addEventListener(eventType, handleTabClick, { passive: false });
+            });
+        });
+
+        // Привязываем обработчики к кнопкам настроек
+        const saveSettingsBtn = document.getElementById('save-settings');
+        const resetSettingsBtn = document.getElementById('reset-settings');
+        const resetStatsBtn = document.getElementById('reset-stats');
+
+        const handleSaveSettings = async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            await this.saveSettings();
+            this.showNotification('Настройки сохранены');
+        };
+
+        const handleResetSettings = async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            await this.resetSettings();
+            this.showNotification('Настройки сброшены к стандартным');
+        };
+
+        const handleResetStats = async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            await this.resetStats();
+            this.showNotification('Статистика сброшена');
+        };
+
+        ['click', 'touchstart'].forEach(eventType => {
+            saveSettingsBtn?.addEventListener(eventType, handleSaveSettings.bind(this), { passive: false });
+            resetSettingsBtn?.addEventListener(eventType, handleResetSettings.bind(this), { passive: false });
+            resetStatsBtn?.addEventListener(eventType, handleResetStats.bind(this), { passive: false });
+        });
+
+        // Привязываем обработчики к кнопкам периодов статистики
+        const periodBtns = document.querySelectorAll('.period-btn');
+        
+        const handlePeriodChange = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const period = e.currentTarget.getAttribute('data-period');
+            periodBtns.forEach(btn => btn.classList.toggle('active', btn.getAttribute('data-period') === period));
+            this.updateStats(period);
+        };
+
+        periodBtns.forEach(btn => {
+            ['click', 'touchstart'].forEach(eventType => {
+                btn.addEventListener(eventType, handlePeriodChange.bind(this), { passive: false });
+            });
+        });
+
+        // Привязываем обработчики к кнопкам изменения числовых значений
+        const numberInputs = document.querySelectorAll('.number-input');
+        
+        numberInputs.forEach(container => {
+            const input = container.querySelector('input');
+            const decreaseBtn = container.querySelector('.decrease');
+            const increaseBtn = container.querySelector('.increase');
+            
+            const handleDecrease = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const min = parseInt(input.min) || 1;
+                input.value = Math.max(min, parseInt(input.value) - 1);
+                input.dispatchEvent(new Event('change'));
+            };
+            
+            const handleIncrease = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const max = parseInt(input.max) || 60;
+                input.value = Math.min(max, parseInt(input.value) + 1);
+                input.dispatchEvent(new Event('change'));
+            };
+            
+            ['click', 'touchstart'].forEach(eventType => {
+                decreaseBtn?.addEventListener(eventType, handleDecrease, { passive: false });
+                increaseBtn?.addEventListener(eventType, handleIncrease, { passive: false });
+            });
+        });
+
+        // Привязываем обработчики к чекбоксам
+        const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', () => {
+                const settingName = checkbox.id.replace(/-/g, '');
+                this.settings[settingName] = checkbox.checked;
+            });
+        });
+
+        console.log('All events bound successfully');
+    }
+
     // ... rest of the class methods ...
 } 
