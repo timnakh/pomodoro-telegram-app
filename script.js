@@ -1,3 +1,7 @@
+// Отладочные сообщения
+console.log('=== Debug Info ===');
+console.log('Script loading...');
+
 console.log("Pomodoro Timer Loading...");
 
 // Звуки для уведомлений
@@ -16,6 +20,7 @@ const SOUNDS = {
 
 class PomodoroTimer {
     constructor() {
+        console.log("=== Constructor called ===");
         // Default settings
         this.defaultSettings = {
             workDuration: 25,
@@ -25,7 +30,7 @@ class PomodoroTimer {
             soundEnabled: true,
             autoStartBreaks: false,
             autoStartWork: false,
-            selectedSound: 'sound4' // Весёлый свисток по умолчанию
+            selectedSound: 'sound4'
         };
 
         // Current settings
@@ -43,6 +48,18 @@ class PomodoroTimer {
         // Audio context and buffers
         this.audioContext = null;
         this.soundBuffers = {};
+        
+        // Initialize audio on first interaction
+        const initAudio = () => {
+            if (!this.audioContext) {
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                this.initSounds().catch(console.error);
+                document.removeEventListener('click', initAudio);
+                document.removeEventListener('touchstart', initAudio);
+            }
+        };
+        document.addEventListener('click', initAudio);
+        document.addEventListener('touchstart', initAudio);
 
         // Statistics
         this.stats = {
@@ -71,51 +88,114 @@ class PomodoroTimer {
             }
         };
 
-        this.init();
+        console.log('Constructor finished, calling init...');
+        // Initialize immediately if we're in a browser environment
+        if (typeof window !== 'undefined') {
+            if (document.readyState === 'loading') {
+                console.log('DOM not ready, waiting for DOMContentLoaded...');
+                document.addEventListener('DOMContentLoaded', () => {
+                    console.log('DOMContentLoaded fired, initializing...');
+                    this.init();
+                });
+            } else {
+                console.log('DOM already ready, initializing immediately...');
+                this.init();
+            }
+        }
     }
 
     async init() {
-        await this.loadSettings();
-        await this.loadStats();
-        await this.initSounds();
-        this.resetTimer();
-        this.bindEvents();
-        this.initializeSettings();
-        this.updateStats();
-        console.log("Timer Ready!");
+        if (this.initialized) {
+            console.log("Already initialized, skipping...");
+            return;
+        }
+
+        console.log("Starting initialization...");
+        try {
+            // Mark as initialized first to prevent double initialization
+            this.initialized = true;
+
+            // Initialize Telegram Web App if available
+            if (window.Telegram?.WebApp?.ready) {
+                console.log("Initializing Telegram Web App...");
+                window.Telegram.WebApp.ready();
+            } else {
+                console.log("Telegram Web App not available, running in browser mode...");
+            }
+
+            // Load settings and stats first
+            await this.loadSettings();
+            await this.loadStats();
+            
+            // Initialize UI components
+            this.resetTimer();
+            this.updateDisplay();
+            this.updateSessionInfo();
+            this.updateButton();
+            
+            // Initialize settings UI
+            this.initializeSettings();
+            this.updateStats();
+            
+            // Initialize sounds last since they're not critical
+            await this.initSounds().catch(error => {
+                console.log('Sound initialization failed, continuing without sounds:', error);
+            });
+            
+            // Bind events after all UI is ready
+            await new Promise(resolve => setTimeout(resolve, 100)); // Small delay to ensure DOM is ready
+            this.bindEvents();
+            
+            console.log("Timer initialization completed successfully!");
+        } catch (error) {
+            console.error("Error during initialization:", error);
+            this.initialized = false; // Reset initialized flag on error
+            
+            // Try to bind events even if other initialization failed
+            try {
+                this.bindEvents();
+            } catch (e) {
+                console.error("Failed to bind events:", e);
+            }
+        }
     }
 
     // Функции для работы с Telegram Storage
     async saveTelegramStorage(key, data) {
         try {
-            await window.Telegram.WebApp.CloudStorage.setItem(key, JSON.stringify(data));
+            if (window.Telegram?.WebApp?.CloudStorage?.setItem) {
+                await window.Telegram.WebApp.CloudStorage.setItem(key, JSON.stringify(data));
+            } else {
+                // Fallback to localStorage if Telegram Storage is not available
+                localStorage.setItem(key, JSON.stringify(data));
+            }
         } catch (error) {
-            console.error('Error saving to Telegram Storage:', error);
-            // Fallback to localStorage if Telegram Storage fails
+            console.log('Using localStorage fallback:', error);
             localStorage.setItem(key, JSON.stringify(data));
         }
     }
 
     async loadTelegramStorage(key, defaultValue = null) {
         try {
-            return new Promise((resolve) => {
-                window.Telegram.WebApp.CloudStorage.getItem(key, (error, value) => {
-                    if (error || !value) {
-                        // Try loading from localStorage as fallback
-                        const localData = localStorage.getItem(key);
-                        if (localData) {
-                            resolve(JSON.parse(localData));
+            if (window.Telegram?.WebApp?.CloudStorage?.getItem) {
+                return new Promise((resolve) => {
+                    window.Telegram.WebApp.CloudStorage.getItem(key, (error, value) => {
+                        if (error || !value) {
+                            // Try loading from localStorage as fallback
+                            const localData = localStorage.getItem(key);
+                            resolve(localData ? JSON.parse(localData) : defaultValue);
                         } else {
-                            resolve(defaultValue);
+                            resolve(JSON.parse(value));
                         }
-                    } else {
-                        resolve(JSON.parse(value));
-                    }
+                    });
                 });
-            });
+            } else {
+                // Fallback to localStorage if Telegram Storage is not available
+                const localData = localStorage.getItem(key);
+                return localData ? JSON.parse(localData) : defaultValue;
+            }
         } catch (error) {
-            console.error('Error loading from Telegram Storage:', error);
-            // Fallback to localStorage
+            console.log('Using localStorage fallback:', error);
             const localData = localStorage.getItem(key);
             return localData ? JSON.parse(localData) : defaultValue;
         }
@@ -151,87 +231,84 @@ class PomodoroTimer {
     }
 
     bindEvents() {
-        // Timer controls
-        const startPauseBtn = document.getElementById("start-pause-btn");
-        const resetBtn = document.getElementById("reset-btn");
-        const skipBtn = document.getElementById("skip-btn");
-
-        if (startPauseBtn) {
-            startPauseBtn.addEventListener("click", () => this.toggleTimer());
-        }
-        if (resetBtn) {
-            resetBtn.addEventListener("click", () => this.resetTimer());
-        }
-        if (skipBtn) {
-            skipBtn.addEventListener("click", () => this.skipSession());
-        }
+        console.log("Binding events...");
         
+        const bindButton = (id, handler) => {
+            const btn = document.getElementById(id);
+            if (!btn) {
+                console.error(`Button ${id} not found!`);
+                return;
+            }
+            
+            console.log(`Binding events to ${id}`);
+            
+            // Remove existing event listeners if any
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+            
+            // Create a wrapper that prevents default and stops propagation
+            const handleEvent = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log(`${id} clicked`);
+                handler.call(this);
+            };
+
+            // Add both click and touch events
+            newBtn.addEventListener('click', handleEvent);
+            newBtn.addEventListener('touchend', handleEvent);
+            
+            // Ensure the button is enabled and clickable
+            newBtn.disabled = false;
+            newBtn.style.pointerEvents = 'auto';
+            newBtn.style.cursor = 'pointer';
+            
+            console.log(`Successfully bound ${id}`);
+            
+            // Return the new button for potential future reference
+            return newBtn;
+        };
+
+        // Bind timer control buttons
+        const buttons = {
+            start: bindButton("start-pause-btn", this.toggleTimer),
+            reset: bindButton("reset-btn", this.resetTimer),
+            skip: bindButton("skip-btn", this.skipSession),
+            save: bindButton("save-settings", this.saveSettings),
+            resetSettings: bindButton("reset-settings", this.resetSettings)
+        };
+
         // Tab navigation
-        document.querySelectorAll(".nav-tab").forEach(tab => {
-            tab.addEventListener("click", (e) => {
-                this.switchTab(e.target.dataset.tab);
-            });
+        const navTabs = document.querySelectorAll(".nav-tab");
+        console.log("Found nav tabs:", navTabs.length);
+        
+        navTabs.forEach(tab => {
+            const newTab = tab.cloneNode(true);
+            tab.parentNode.replaceChild(newTab, tab);
+            
+            const handleTabClick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const tabName = e.target.closest('.nav-tab').dataset.tab;
+                console.log("Tab clicked:", tabName);
+                this.switchTab(tabName);
+            };
+
+            newTab.addEventListener("click", handleTabClick);
+            newTab.addEventListener("touchend", handleTabClick);
         });
 
-        // Settings controls
-        const saveSettingsBtn = document.getElementById("save-settings");
-        const resetSettingsBtn = document.getElementById("reset-settings");
-        const testSoundBtn = document.getElementById("test-sound");
-        const soundSelect = document.getElementById("sound-select");
-
-        if (saveSettingsBtn) {
-            saveSettingsBtn.addEventListener("click", () => this.saveSettings());
-        }
-        if (resetSettingsBtn) {
-            resetSettingsBtn.addEventListener("click", () => this.resetSettings());
-        }
-        if (testSoundBtn) {
-            testSoundBtn.addEventListener("click", () => this.playNotificationSound());
-        }
-        if (soundSelect) {
-            soundSelect.addEventListener("change", (e) => {
-                this.settings.selectedSound = e.target.value;
-            });
-        }
-
-        // Number input controls
-        document.querySelectorAll('.number-input').forEach(container => {
-            const input = container.querySelector('input');
-            const decreaseBtn = container.querySelector('.decrease');
-            const increaseBtn = container.querySelector('.increase');
-
-            if (decreaseBtn) {
-                decreaseBtn.addEventListener('click', () => {
-                    const newValue = Math.max(parseInt(input.value) - 1, parseInt(input.min));
-                    input.value = newValue;
-                });
-            }
-
-            if (increaseBtn) {
-                increaseBtn.addEventListener('click', () => {
-                    const newValue = Math.min(parseInt(input.value) + 1, parseInt(input.max));
-                    input.value = newValue;
-                });
+        // Make all buttons explicitly clickable
+        document.querySelectorAll('button, .control-btn').forEach(btn => {
+            if (!btn.hasAttribute('data-bound')) {
+                btn.disabled = false;
+                btn.style.pointerEvents = 'auto';
+                btn.style.cursor = 'pointer';
+                btn.setAttribute('data-bound', 'true');
             }
         });
-
-        // Statistics controls
-        document.querySelectorAll('.period-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                this.updateStats(btn.dataset.period);
-            });
-        });
-
-        const resetStatsBtn = document.getElementById('reset-stats');
-        if (resetStatsBtn) {
-            resetStatsBtn.addEventListener('click', () => {
-                if (confirm('Вы уверены, что хотите сбросить всю статистику?')) {
-                    this.resetStats();
-                }
-            });
-        }
+        
+        console.log("Event binding completed");
     }
 
     switchTab(tabName) {
@@ -256,11 +333,86 @@ class PomodoroTimer {
         document.getElementById("auto-start-breaks").checked = this.settings.autoStartBreaks;
         document.getElementById("auto-start-work").checked = this.settings.autoStartWork;
 
-        // Set sound selector
-        const soundSelect = document.getElementById('sound-select');
-        if (soundSelect) {
-            soundSelect.value = this.settings.selectedSound;
-        }
+        // Create and initialize sound selector
+        this.createSoundSelector();
+    }
+
+    createSoundSelector() {
+        // Find the container for sound settings
+        const soundEnabledGroup = document.getElementById("sound-enabled").closest('.setting-group');
+        if (!soundEnabledGroup) return;
+
+        // Create sound selector group
+        const soundGroup = document.createElement('div');
+        soundGroup.className = 'setting-group';
+        
+        // Create label
+        const label = document.createElement('label');
+        label.textContent = 'Звук уведомления';
+        
+        // Create select element
+        const select = document.createElement('select');
+        select.id = 'sound-select';
+        select.className = 'sound-select';
+        
+        // Add sound options
+        Object.entries(SOUNDS).forEach(([key, sound]) => {
+            const option = document.createElement('option');
+            option.value = key;
+            option.textContent = sound.name;
+            if (key === this.settings.selectedSound) {
+                option.selected = true;
+            }
+            select.appendChild(option);
+        });
+        
+        // Create test button
+        const testButton = document.createElement('button');
+        testButton.id = 'test-sound';
+        testButton.className = 'control-btn secondary';
+        testButton.innerHTML = '<span class="btn-icon">🔊</span><span class="btn-text">Тест</span>';
+        
+        // Add elements to group
+        soundGroup.appendChild(label);
+        soundGroup.appendChild(select);
+        soundGroup.appendChild(testButton);
+        
+        // Insert after sound enabled checkbox
+        soundEnabledGroup.parentNode.insertBefore(soundGroup, soundEnabledGroup.nextSibling);
+        
+        // Add change event listener
+        select.addEventListener('change', (e) => {
+            console.log('Sound changed to:', e.target.value);
+            this.settings.selectedSound = e.target.value;
+        });
+
+        // Now that the button exists, we can bind its event
+        const bindButton = (id, handler) => {
+            const btn = document.getElementById(id);
+            if (!btn) {
+                console.error(`Button ${id} not found!`);
+                return;
+            }
+            
+            const handleEvent = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handler.call(this);
+            };
+
+            btn.addEventListener('click', handleEvent);
+            btn.addEventListener('touchend', handleEvent);
+            
+            btn.disabled = false;
+            btn.style.pointerEvents = 'auto';
+            btn.style.cursor = 'pointer';
+        };
+
+        // Bind test sound button
+        bindButton('test-sound', () => {
+            console.log('Test sound button clicked');
+            this.playNotificationSound();
+        });
     }
 
     validateSettings(settings) {
@@ -506,7 +658,7 @@ class PomodoroTimer {
                 console.log('AudioContext resumed');
             }
 
-            const selectedSound = this.settings.selectedSound;
+            const selectedSound = this.settings.selectedSound || 'sound4';
             console.log('Playing sound:', selectedSound);
 
             if (!this.soundBuffers[selectedSound]) {
@@ -560,11 +712,14 @@ class PomodoroTimer {
             };
             document.addEventListener('click', initAudioContext);
             
+            let loadedSounds = 0;
+            const totalSounds = Object.keys(SOUNDS).length;
+            
             // Загружаем все звуки
             for (const [key, sound] of Object.entries(SOUNDS)) {
                 try {
                     console.log(`Loading sound: ${sound.file}`);
-                    const response = await fetch(`sounds/${sound.file}`);
+                    const response = await fetch(sound.file);
                     if (!response.ok) {
                         throw new Error(`HTTP error! status: ${response.status}`);
                     }
@@ -572,57 +727,33 @@ class PomodoroTimer {
                     if (!this.audioContext) {
                         this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
                     }
+                    console.log(`Decoding audio data for ${sound.file}...`);
                     this.soundBuffers[key] = await this.audioContext.decodeAudioData(arrayBuffer);
                     console.log(`Sound loaded successfully: ${sound.file}`);
+                    loadedSounds++;
                 } catch (error) {
-                    console.error(`Error loading sound ${sound.file}:`, error);
+                    console.warn(`Error loading sound ${sound.file}:`, error);
+                    // Create a silent buffer as fallback
+                    if (!this.audioContext) {
+                        this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    }
+                    const sampleRate = this.audioContext.sampleRate;
+                    const buffer = this.audioContext.createBuffer(1, sampleRate * 0.5, sampleRate);
+                    this.soundBuffers[key] = buffer;
                 }
+            }
+
+            if (loadedSounds === 0) {
+                console.warn('No sounds were loaded successfully. Sound notifications may not work.');
+            } else if (loadedSounds < totalSounds) {
+                console.warn(`Only ${loadedSounds} out of ${totalSounds} sounds were loaded successfully.`);
+            } else {
+                console.log('All sounds loaded successfully!');
             }
         } catch (error) {
             console.error('Error initializing audio system:', error);
+            // Don't throw the error - we want the app to work even without sounds
         }
-    }
-
-    createSoundSelector() {
-        const settingsContainer = document.querySelector('.settings-container');
-        const soundGroup = document.createElement('div');
-        soundGroup.className = 'setting-group';
-        
-        const label = document.createElement('label');
-        label.textContent = 'Звук уведомления';
-        
-        const select = document.createElement('select');
-        select.id = 'sound-select';
-        select.className = 'sound-select';
-        
-        Object.entries(SOUNDS).forEach(([key, sound]) => {
-            const option = document.createElement('option');
-            option.value = key;
-            option.textContent = sound.name;
-            select.appendChild(option);
-        });
-        
-        const testButton = document.createElement('button');
-        testButton.className = 'control-btn secondary';
-        testButton.innerHTML = '<span class="btn-icon">🔊</span><span class="btn-text">Тест</span>';
-        testButton.onclick = () => {
-            console.log('Test button clicked');
-            this.playNotificationSound();
-        };
-        
-        soundGroup.appendChild(label);
-        soundGroup.appendChild(select);
-        soundGroup.appendChild(testButton);
-        
-        const saveButton = document.querySelector('#save-settings');
-        settingsContainer.insertBefore(soundGroup, saveButton);
-        
-        select.addEventListener('change', (e) => {
-            console.log('Sound changed to:', e.target.value);
-            this.settings.selectedSound = e.target.value;
-        });
-        
-        return select;
     }
 
     updateSessionStats(completed = true) {
@@ -857,7 +988,7 @@ class PomodoroTimer {
     }
 }
 
-// Initialize the timer when the document is ready
-document.addEventListener("DOMContentLoaded", function() {
-    window.pomodoroTimer = new PomodoroTimer();
-}); 
+// Create and initialize the timer
+console.log('Creating timer instance...');
+const timer = new PomodoroTimer();
+console.log('Timer instance created!'); 
