@@ -338,13 +338,17 @@ class PomodoroTimer {
     }
 
     createSoundSelector() {
+        // Удаляем существующие селекторы звука, если они есть
+        const existingSoundGroups = document.querySelectorAll('.setting-group.sound-selector');
+        existingSoundGroups.forEach(group => group.remove());
+
         // Find the container for sound settings
         const soundEnabledGroup = document.getElementById("sound-enabled").closest('.setting-group');
         if (!soundEnabledGroup) return;
 
         // Create sound selector group
         const soundGroup = document.createElement('div');
-        soundGroup.className = 'setting-group';
+        soundGroup.className = 'setting-group sound-selector';
         
         // Create label
         const label = document.createElement('label');
@@ -652,10 +656,21 @@ class PomodoroTimer {
                 console.log('AudioContext created on playback');
             }
 
-            // Проверяем состояние AudioContext
+            // Проверяем состояние AudioContext и пытаемся разблокировать его
             if (this.audioContext.state === 'suspended') {
                 await this.audioContext.resume();
                 console.log('AudioContext resumed');
+            }
+
+            // На мобильных устройствах может потребоваться дополнительная разблокировка
+            if (this.audioContext.state !== 'running') {
+                const unlockAudio = async () => {
+                    await this.audioContext.resume();
+                    document.body.removeEventListener('touchstart', unlockAudio);
+                    document.body.removeEventListener('click', unlockAudio);
+                };
+                document.body.addEventListener('touchstart', unlockAudio);
+                document.body.addEventListener('click', unlockAudio);
             }
 
             const selectedSound = this.settings.selectedSound || 'sound4';
@@ -663,7 +678,11 @@ class PomodoroTimer {
 
             if (!this.soundBuffers[selectedSound]) {
                 console.error('Sound buffer not found for:', selectedSound);
-                return;
+                // Попробуем перезагрузить звуки
+                await this.initSounds();
+                if (!this.soundBuffers[selectedSound]) {
+                    return;
+                }
             }
 
             const source = this.audioContext.createBufferSource();
@@ -719,7 +738,7 @@ class PomodoroTimer {
             for (const [key, sound] of Object.entries(SOUNDS)) {
                 try {
                     console.log(`Loading sound: ${sound.file}`);
-                    const response = await fetch(sound.file);
+                    const response = await fetch(`sounds/${sound.file}`);
                     if (!response.ok) {
                         throw new Error(`HTTP error! status: ${response.status}`);
                     }
@@ -752,7 +771,6 @@ class PomodoroTimer {
             }
         } catch (error) {
             console.error('Error initializing audio system:', error);
-            // Don't throw the error - we want the app to work even without sounds
         }
     }
 
