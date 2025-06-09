@@ -635,7 +635,12 @@ class PomodoroTimer {
 
     skipSession() {
         console.log('Skipping session...');
-        this.pauseTimer();
+        // Если пропускаем рабочую сессию, увеличиваем счетчик прерванных
+        if (this.currentSession === 'work') {
+            this.stats.today.interrupted++;
+            this.saveStats();
+            this.updateStats();
+        }
         this.completeSession();
     }
 
@@ -647,11 +652,38 @@ class PomodoroTimer {
             this.playNotificationSound();
         }
         
-        // Обновляем статистику
+        // Обновляем статистику только если завершился рабочий блок
         if (this.currentSession === 'work') {
+            // Увеличиваем счетчики
             this.stats.today.pomodoros++;
             this.stats.today.completed++;
+            
+            // Добавляем время фокуса (в минутах)
+            this.stats.today.time += this.settings.workDuration;
+            
+            // Обновляем недельную статистику
+            const dayIndex = new Date().getDay();
+            this.stats.week[dayIndex].pomodoros++;
+            this.stats.week[dayIndex].time += this.settings.workDuration;
+            
+            // Обновляем общую статистику
+            this.stats.total.pomodoros++;
+            this.stats.total.time += this.settings.workDuration;
+            this.stats.total.sessions++;
+            
+            // Устанавливаем дату первой сессии, если еще не установлена
+            if (!this.stats.total.firstSession) {
+                this.stats.total.firstSession = new Date().toISOString();
+            }
+            
+            // Проверяем достижения
+            this.checkAchievements();
+            
+            // Сохраняем статистику
             this.saveStats();
+            
+            // Обновляем отображение статистики
+            this.updateStats();
         }
         
         // Переключаем тип сессии
@@ -688,6 +720,33 @@ class PomodoroTimer {
         if ((this.currentSession === 'work' && this.settings.autoStartWork) ||
             ((this.currentSession === 'shortBreak' || this.currentSession === 'longBreak') && this.settings.autoStartBreaks)) {
             this.startTimer();
+        }
+    }
+
+    checkAchievements() {
+        // Первый помидор
+        if (!this.stats.achievements.first && this.stats.total.pomodoros === 1) {
+            this.stats.achievements.first = true;
+            this.showNotification('🎯 Достижение разблокировано: Первый помидор!');
+        }
+
+        // На волне (3 помидора подряд)
+        if (!this.stats.achievements.streak && this.stats.today.pomodoros >= 3) {
+            this.stats.achievements.streak = true;
+            this.showNotification('🔥 Достижение разблокировано: На волне!');
+        }
+
+        // Мастер фокуса (10 помидоров за день)
+        if (!this.stats.achievements.master && this.stats.today.pomodoros >= 10) {
+            this.stats.achievements.master = true;
+            this.showNotification('🎓 Достижение разблокировано: Мастер фокуса!');
+        }
+
+        // Эффективность (не прерывать 5 помидоров подряд)
+        const efficiency = this.stats.today.completed / (this.stats.today.completed + this.stats.today.interrupted);
+        if (!this.stats.achievements.efficient && efficiency >= 0.9 && this.stats.today.completed >= 5) {
+            this.stats.achievements.efficient = true;
+            this.showNotification('⚡ Достижение разблокировано: Эффективность!');
         }
     }
 
@@ -780,75 +839,80 @@ class PomodoroTimer {
     }
 
     updateStats() {
-        // Обновляем статистику на текущий день
-        const todayStats = document.getElementById('today-stats');
-        if (todayStats) {
-            todayStats.textContent = `Сегодня: ${this.stats.today.pomodoros} помидоров`;
+        // Обновляем основные показатели
+        const periodPomodoros = document.getElementById('period-pomodoros');
+        const periodTime = document.getElementById('period-time');
+        const periodStreak = document.getElementById('period-streak');
+        const periodEfficiency = document.getElementById('period-efficiency');
+
+        if (periodPomodoros) {
+            periodPomodoros.textContent = this.stats.today.pomodoros;
         }
 
-        // Обновляем общую статистику
-        const totalStats = document.getElementById('total-stats');
-        if (totalStats) {
-            totalStats.textContent = `Всего: ${this.stats.total.pomodoros} помидоров`;
+        if (periodTime) {
+            periodTime.textContent = this.stats.today.time;
         }
 
-        // Обновляем статистику за неделю
-        const weekStats = document.getElementById('week-stats');
-        if (weekStats) {
-            // Очищаем предыдущие данные
-            weekStats.innerHTML = '';
+        if (periodStreak) {
+            periodStreak.textContent = this.stats.total.currentStreak;
+        }
+
+        if (periodEfficiency) {
+            const total = this.stats.today.completed + this.stats.today.interrupted;
+            const efficiency = total > 0 ? Math.round((this.stats.today.completed / total) * 100) : 0;
+            periodEfficiency.textContent = efficiency + '%';
+        }
+
+        // Обновляем график активности
+        const weeklyChart = document.getElementById('weekly-chart');
+        if (weeklyChart) {
+            const bars = weeklyChart.querySelectorAll('.chart-bar');
+            const maxPomodoros = Math.max(...this.stats.week.map(day => day.pomodoros));
             
-            // Получаем текущий день недели (0 = воскресенье)
-            const today = new Date().getDay();
-            
-            // Создаем элементы для каждого дня недели
-            const days = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
-            days.forEach((day, index) => {
-                const dayElement = document.createElement('div');
-                dayElement.className = 'week-day';
-                
-                // Определяем, является ли этот день текущим
-                const isToday = index === today;
-                if (isToday) {
-                    dayElement.classList.add('current-day');
-                }
-                
-                // Добавляем название дня и количество помидоров
-                dayElement.innerHTML = `
-                    <span class="day-name">${day}</span>
-                    <span class="pomodoro-count">${this.stats.week[index].pomodoros}</span>
-                `;
-                
-                weekStats.appendChild(dayElement);
+            bars.forEach((bar, index) => {
+                const height = maxPomodoros > 0 ? (this.stats.week[index].pomodoros / maxPomodoros) * 100 : 0;
+                bar.style.height = `${height}%`;
+                bar.title = `${this.stats.week[index].pomodoros} помидоров`;
             });
         }
 
+        // Обновляем детальную статистику
+        const avgSessionTime = document.getElementById('avg-session-time');
+        const bestDay = document.getElementById('best-day');
+        const totalSessions = document.getElementById('total-sessions');
+        const firstSession = document.getElementById('first-session');
+
+        if (avgSessionTime) {
+            const avg = this.stats.total.sessions > 0 
+                ? Math.round(this.stats.total.time / this.stats.total.sessions) 
+                : this.settings.workDuration;
+            avgSessionTime.textContent = `${avg} мин`;
+        }
+
+        if (bestDay && this.stats.total.bestDay.date) {
+            const date = new Date(this.stats.total.bestDay.date);
+            bestDay.textContent = `${date.toLocaleDateString()} (${this.stats.total.bestDay.pomodoros} помидоров)`;
+        }
+
+        if (totalSessions) {
+            totalSessions.textContent = this.stats.total.sessions;
+        }
+
+        if (firstSession && this.stats.total.firstSession) {
+            const date = new Date(this.stats.total.firstSession);
+            firstSession.textContent = date.toLocaleDateString();
+        }
+
         // Обновляем достижения
-        const achievementsContainer = document.getElementById('achievements');
-        if (achievementsContainer) {
-            achievementsContainer.innerHTML = '';
-            
-            const achievements = {
-                first: { icon: '🎯', title: 'Первый помидор', description: 'Завершите первый рабочий блок' },
-                streak: { icon: '🔥', title: 'На волне', description: 'Завершите 3 помидора подряд' },
-                master: { icon: '🎓', title: 'Мастер фокуса', description: 'Завершите 10 помидоров за день' },
-                efficient: { icon: '⚡', title: 'Эффективность', description: 'Не прерывайте помидор 5 раз подряд' }
-            };
-            
-            Object.entries(achievements).forEach(([key, achievement]) => {
-                const achieved = this.stats.achievements[key];
-                const achievementElement = document.createElement('div');
-                achievementElement.className = `achievement ${achieved ? 'achieved' : ''}`;
-                
-                achievementElement.innerHTML = `
-                    <span class="achievement-icon">${achievement.icon}</span>
-                    <div class="achievement-info">
-                        <h3>${achievement.title}</h3>
-                        <p>${achievement.description}</p>
-                    </div>
-                `;
-                
-                achievementsContainer.appendChild(achievementElement);
+        const achievementList = document.getElementById('achievement-list');
+        if (achievementList) {
+            const achievements = achievementList.querySelectorAll('[data-achievement]');
+            achievements.forEach(achievement => {
+                const type = achievement.dataset.achievement;
+                if (this.stats.achievements[type]) {
+                    achievement.classList.remove('locked');
+                    achievement.classList.add('unlocked');
+                }
             });
         }
     }
