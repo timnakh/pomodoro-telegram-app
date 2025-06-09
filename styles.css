@@ -64,9 +64,15 @@ body {
     background: transparent;
     color: var(--hint-color);
     font-size: 14px;
-    cursor: pointer;
+    cursor: pointer !important;
+    pointer-events: auto !important;
     transition: all 0.3s ease;
     border-bottom: 3px solid transparent;
+    -webkit-tap-highlight-color: rgba(0,0,0,0);
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
 }
 
 .nav-tab.active {
@@ -77,6 +83,10 @@ body {
 
 .nav-tab:hover {
     background: var(--bg-color);
+}
+
+.nav-tab:active {
+    transform: scale(0.98);
 }
 
 .tab-content {
@@ -169,7 +179,8 @@ body {
     border-radius: var(--border-radius);
     font-size: 14px;
     font-weight: 600;
-    cursor: pointer;
+    cursor: pointer !important;
+    pointer-events: auto !important;
     transition: all 0.3s ease;
     display: flex;
     flex-direction: column;
@@ -179,8 +190,22 @@ body {
     justify-content: center;
     text-align: center;
     height: 60px;
-    background: var(--secondary-bg-color);
-    color: var(--text-color);
+    background: var(--secondary-bg-color, #f5f7fa);
+    color: var(--text-color, #333);
+    position: relative;
+    z-index: 1;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(0,0,0,0);
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+
+.control-btn:active,
+.nav-tab:active,
+button:active {
+    transform: scale(0.98);
 }
 
 .control-btn .btn-icon {
@@ -194,8 +219,8 @@ body {
 }
 
 .control-btn.primary {
-    background: var(--button-color);
-    color: var(--button-text-color);
+    background: var(--button-color, #9D4EDD);
+    color: var(--button-text-color, #fff);
 }
 
 .control-btn.primary:hover {
@@ -204,13 +229,19 @@ body {
 }
 
 .control-btn.secondary {
-    background: var(--bg-color);
-    color: var(--text-color);
-    border: 1px solid var(--border-color);
+    background: var(--bg-color, #f5f7fa);
+    color: var(--text-color, #333);
+    border: 1px solid var(--border-color, #e1e8ed);
 }
 
 .control-btn.secondary:hover {
     background: var(--border-color);
+}
+
+button:disabled,
+.control-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed !important;
 }
 
 .full-width {
@@ -231,7 +262,7 @@ body {
 }
 
 .setting-group {
-    margin-bottom: 15px;
+    margin-bottom: 20px;
     padding: 12px;
     background: var(--bg-color);
     border-radius: var(--border-radius);
@@ -239,9 +270,8 @@ body {
 
 .setting-group label {
     display: block;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
     color: var(--text-color);
-    font-weight: 500;
     font-size: 14px;
 }
 
@@ -255,22 +285,24 @@ body {
 .number-input {
     display: flex;
     align-items: center;
-    gap: 6px;
-    background: var(--surface-color);
-    border-radius: var(--border-radius);
-    padding: 4px;
-    border: 1px solid var(--border-color);
+    gap: 8px;
+    margin: 8px 0;
 }
 
 .number-input input {
-    width: 50px;
+    width: 60px;
     text-align: center;
-    border: none;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 4px;
     font-size: 14px;
-    padding: 6px;
-    background: transparent;
     color: var(--text-color);
-    -moz-appearance: textfield;
+    background: var(--bg-color);
+}
+
+.number-input input:focus {
+    outline: none;
+    border-color: var(--button-color);
 }
 
 .number-input input::-webkit-outer-spin-button,
@@ -280,22 +312,27 @@ body {
 }
 
 .number-input button {
-    width: 28px;
-    height: 28px;
-    border: none;
+    width: 30px;
+    height: 30px;
+    border: 1px solid var(--border-color);
     background: var(--bg-color);
-    color: var(--text-color);
-    font-size: 16px;
     cursor: pointer;
-    border-radius: 6px;
+    padding: 0;
     display: flex;
     align-items: center;
     justify-content: center;
+    font-size: 18px;
+    border-radius: var(--border-radius);
+    color: var(--text-color);
     transition: all 0.2s ease;
 }
 
 .number-input button:hover {
     background: var(--border-color);
+}
+
+.number-input button:active {
+    transform: scale(0.95);
 }
 
 /* Checkbox styles */
@@ -565,23 +602,64 @@ body {
 /* Sound selector styles */
 .sound-select {
     width: 100%;
-    padding: 8px 12px;
+    padding: 10px;
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius);
-    background: var(--surface-color);
+    background-color: var(--secondary-bg-color);
     color: var(--text-color);
     font-size: 14px;
     margin-bottom: 10px;
-    appearance: none;
     -webkit-appearance: none;
-    background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23666%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
-    background-repeat: no-repeat;
-    background-position: right 12px center;
-    background-size: 12px;
+    appearance: none;
     cursor: pointer;
+    outline: none;
 }
 
 .sound-select:focus {
-    outline: none;
     border-color: var(--button-color);
+}
+
+.sound-select option {
+    padding: 10px;
+    background-color: var(--surface-color);
+    color: var(--text-color);
+}
+
+#test-sound {
+    width: auto;
+    padding: 8px 16px;
+    margin-top: 8px;
+    background: var(--secondary-bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    color: var(--text-color);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+}
+
+#test-sound:hover {
+    background: var(--bg-color);
+    border-color: var(--button-color);
+}
+
+#test-sound:active {
+    transform: scale(0.98);
+}
+
+#test-sound .btn-icon {
+    font-size: 16px;
+}
+
+/* Button Icons and Text */
+.btn-icon {
+    font-size: 20px;
+    line-height: 1;
+}
+
+.btn-text {
+    font-size: 13px;
+    line-height: 1;
 } 
