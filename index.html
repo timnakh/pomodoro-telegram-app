@@ -2,53 +2,32 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pomodoro Timer</title>
-    
-    <!-- PWA Meta Tags -->
-    <meta name="theme-color" content="#007AFF">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#9D4EDD">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="Pomodoro">
-    <meta name="description" content="Полнофункциональный Pomodoro-таймер для повышения продуктивности">
-    
-    <!-- Manifest -->
-    <link rel="manifest" href="manifest.json">
-    
-    <!-- Styles -->
-    <link rel="stylesheet" href="styles.css">
-    
-    <!-- Telegram Web App Script -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>🍅 Life Journey RPG Pomodoro</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <!-- Главный контейнер приложения -->
+    <div class="demo-notice">
+        🎮 Life Journey RPG Pomodoro
+    </div>
+
     <div class="app-container">
-        <!-- Навигация -->
         <nav class="nav-tabs">
-            <button class="nav-tab active" data-tab="timer">
-                <span class="tab-icon">⏰</span>
-                Таймер
-            </button>
-            <button class="nav-tab" data-tab="settings">
-                <span class="tab-icon">⚙️</span>
-                Настройки
-            </button>
-            <button class="nav-tab" data-tab="stats">
-                <span class="tab-icon">📊</span>
-                Статистика
-            </button>
+            <button class="nav-tab active" data-tab="timer">⏰ Таймер</button>
+            <button class="nav-tab" data-tab="settings">⚙️ Настройки</button>
+            <button class="nav-tab" data-tab="stats">📊 Статистика</button>
         </nav>
 
-        <!-- Секция таймера -->
         <div class="tab-content active" id="timer-tab">
-            <!-- Индикатор текущей сессии -->
             <div class="session-indicator">
                 <span id="session-type">Рабочий блок</span>
                 <span id="session-count">1/4</span>
             </div>
 
-            <!-- Круговой прогресс-бар -->
             <div class="timer-container">
                 <div class="circular-progress">
                     <svg class="progress-ring" width="280" height="280">
@@ -62,61 +41,64 @@
                 </div>
             </div>
 
-            <!-- Кнопки управления -->
             <div class="controls">
                 <button id="start-pause-btn" class="control-btn primary">
                     <span class="btn-icon">▶️</span>
-                    Начать
+                    <span class="btn-text">Начать</span>
                 </button>
                 <button id="reset-btn" class="control-btn secondary">
                     <span class="btn-icon">🔄</span>
-                    Сброс
+                    <span class="btn-text">Сброс</span>
                 </button>
                 <button id="skip-btn" class="control-btn secondary">
                     <span class="btn-icon">⏭️</span>
-                    Пропустить
+                    <span class="btn-text">Пропустить</span>
                 </button>
-            </div>
-
-            <!-- Мини-статистика для текущего дня -->
-            <div class="daily-progress">
-                <h3>Сегодня</h3>
-                <div class="progress-stats">
-                    <div class="stat-item">
-                        <span class="stat-number" id="today-pomodoros">0</span>
-                        <span class="stat-label">помидоров</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-number" id="today-time">0</span>
-                        <span class="stat-label">минут</span>
-                    </div>
-                </div>
             </div>
         </div>
 
-        <!-- Секция настроек -->
         <div class="tab-content" id="settings-tab">
             <div class="settings-container">
-                <h2>Настройки таймера</h2>
+                <h2>⚙️ Настройки таймера</h2>
                 
                 <div class="setting-group">
                     <label for="work-duration">Рабочий блок (минуты)</label>
-                    <input type="number" id="work-duration" min="1" max="60" value="25">
+                    <div class="number-input">
+                        <button class="decrease">-</button>
+                        <input type="number" id="work-duration" min="1" max="60" value="25">
+                        <button class="increase">+</button>
+                    </div>
+                    <small>Стандартно: 25 минут</small>
                 </div>
 
                 <div class="setting-group">
                     <label for="short-break-duration">Короткий перерыв (минуты)</label>
-                    <input type="number" id="short-break-duration" min="1" max="30" value="5">
+                    <div class="number-input">
+                        <button class="decrease">-</button>
+                        <input type="number" id="short-break-duration" min="1" max="30" value="5">
+                        <button class="increase">+</button>
+                    </div>
+                    <small>Стандартно: 5 минут</small>
                 </div>
 
                 <div class="setting-group">
                     <label for="long-break-duration">Длинный перерыв (минуты)</label>
-                    <input type="number" id="long-break-duration" min="1" max="60" value="15">
+                    <div class="number-input">
+                        <button class="decrease">-</button>
+                        <input type="number" id="long-break-duration" min="5" max="60" value="15">
+                        <button class="increase">+</button>
+                    </div>
+                    <small>Стандартно: 15 минут</small>
                 </div>
 
                 <div class="setting-group">
                     <label for="sessions-until-long-break">Рабочих блоков до длинного перерыва</label>
-                    <input type="number" id="sessions-until-long-break" min="2" max="8" value="4">
+                    <div class="number-input">
+                        <button class="decrease">-</button>
+                        <input type="number" id="sessions-until-long-break" min="2" max="8" value="4">
+                        <button class="increase">+</button>
+                    </div>
+                    <small>Стандартно: 4 блока</small>
                 </div>
 
                 <div class="setting-group">
@@ -147,80 +129,150 @@
                     </button>
                 </div>
 
+                <div class="setting-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="auto-start-breaks">
+                        <span class="checkmark"></span>
+                        Автозапуск перерывов
+                    </label>
+                </div>
+
+                <div class="setting-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="auto-start-work">
+                        <span class="checkmark"></span>
+                        Автозапуск рабочих блоков
+                    </label>
+                </div>
+
                 <button id="save-settings" class="control-btn primary full-width">
-                    <span class="btn-icon">💾</span>
-                    <span class="btn-text">Сохранить настройки</span>
+                    💾 Сохранить настройки
                 </button>
 
-                <button id="reset-settings" class="control-btn secondary full-width">
-                    <span class="btn-icon">🔄</span>
-                    <span class="btn-text">Сбросить настройки</span>
-                </button>
-
-                <button id="reset-stats" class="control-btn danger full-width">
-                    <span class="btn-icon">🗑️</span>
-                    <span class="btn-text">Сбросить всю статистику</span>
+                <button id="reset-settings" class="control-btn secondary full-width" style="margin-top: 10px;">
+                    🔄 Сбросить к стандартным
                 </button>
             </div>
         </div>
 
-        <!-- Секция статистики -->
         <div class="tab-content" id="stats-tab">
             <div class="stats-container">
-                <h2>Статистика</h2>
+                <h2>📊 Ваша статистика</h2>
                 
-                <!-- Статистика за сегодня -->
-                <div class="stats-period">
-                    <h3>Сегодня</h3>
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-value" id="stats-today-pomodoros">0</div>
-                            <div class="stat-label">Помидоров</div>
+                <!-- Переключатель периодов -->
+                <div class="period-selector">
+                    <button class="period-btn active" data-period="today">Сегодня</button>
+                    <button class="period-btn" data-period="week">Неделя</button>
+                    <button class="period-btn" data-period="month">Месяц</button>
+                    <button class="period-btn" data-period="all">Всё время</button>
+                </div>
+
+                <!-- Основные метрики -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">🍅</div>
+                        <div class="stat-value" id="period-pomodoros">0</div>
+                        <div class="stat-label">Помидоров</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">⏱️</div>
+                        <div class="stat-value" id="period-time">0</div>
+                        <div class="stat-label">Минут фокуса</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📈</div>
+                        <div class="stat-value" id="period-streak">0</div>
+                        <div class="stat-label">Дней подряд</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🎯</div>
+                        <div class="stat-value" id="period-efficiency">0%</div>
+                        <div class="stat-label">Эффективность</div>
+                    </div>
+                </div>
+
+                <!-- График за неделю -->
+                <div class="chart-container">
+                    <h3>📈 Активность по дням</h3>
+                    <div class="chart" id="weekly-chart">
+                        <div class="chart-day">
+                            <div class="chart-bar" data-day="0"></div>
+                            <span class="chart-label">Пн</span>
                         </div>
-                        <div class="stat-card">
-                            <div class="stat-value" id="stats-today-time">0</div>
-                            <div class="stat-label">Минут</div>
+                        <div class="chart-day">
+                            <div class="chart-bar" data-day="1"></div>
+                            <span class="chart-label">Вт</span>
+                        </div>
+                        <div class="chart-day">
+                            <div class="chart-bar" data-day="2"></div>
+                            <span class="chart-label">Ср</span>
+                        </div>
+                        <div class="chart-day">
+                            <div class="chart-bar" data-day="3"></div>
+                            <span class="chart-label">Чт</span>
+                        </div>
+                        <div class="chart-day">
+                            <div class="chart-bar" data-day="4"></div>
+                            <span class="chart-label">Пт</span>
+                        </div>
+                        <div class="chart-day">
+                            <div class="chart-bar" data-day="5"></div>
+                            <span class="chart-label">Сб</span>
+                        </div>
+                        <div class="chart-day">
+                            <div class="chart-bar" data-day="6"></div>
+                            <span class="chart-label">Вс</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- Статистика за неделю -->
-                <div class="stats-period">
-                    <h3>Эта неделя</h3>
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-value" id="stats-week-pomodoros">0</div>
-                            <div class="stat-label">Помидоров</div>
+                <!-- Детальная статистика -->
+                <div class="detailed-stats">
+                    <h3>📋 Подробная информация</h3>
+                    <div class="stat-row">
+                        <span>Средняя длительность сессии:</span>
+                        <span id="avg-session-time">25 мин</span>
+                    </div>
+                    <div class="stat-row">
+                        <span>Лучший день:</span>
+                        <span id="best-day">Сегодня</span>
+                    </div>
+                    <div class="stat-row">
+                        <span>Всего сессий завершено:</span>
+                        <span id="total-sessions">0</span>
+                    </div>
+                    <div class="stat-row">
+                        <span>Первая сессия:</span>
+                        <span id="first-session">Сегодня</span>
+                    </div>
+                </div>
+
+                <!-- Достижения -->
+                <div class="achievements">
+                    <h3>🏆 Достижения</h3>
+                    <div class="achievement-list" id="achievement-list">
+                        <div class="achievement locked" data-achievement="first">
+                            <span class="achievement-icon">🥇</span>
+                            <span class="achievement-text">Первый помидор</span>
                         </div>
-                        <div class="stat-card">
-                            <div class="stat-value" id="stats-week-time">0</div>
-                            <div class="stat-label">Минут</div>
+                        <div class="achievement locked" data-achievement="streak">
+                            <span class="achievement-icon">🔥</span>
+                            <span class="achievement-text">5 дней подряд</span>
+                        </div>
+                        <div class="achievement locked" data-achievement="master">
+                            <span class="achievement-icon">💯</span>
+                            <span class="achievement-text">100 помидоров</span>
+                        </div>
+                        <div class="achievement locked" data-achievement="efficient">
+                            <span class="achievement-icon">⚡</span>
+                            <span class="achievement-text">90% эффективность</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- Статистика за месяц -->
-                <div class="stats-period">
-                    <h3>Этот месяц</h3>
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-value" id="stats-month-pomodoros">0</div>
-                            <div class="stat-label">Помидоров</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-value" id="stats-month-time">0</div>
-                            <div class="stat-label">Минут</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Визуализация прогресса за неделю -->
-                <div class="weekly-chart">
-                    <h3>Прогресс за неделю</h3>
-                    <div class="chart-container">
-                        <div class="chart-bars" id="weekly-chart"></div>
-                    </div>
-                </div>
+                <button id="reset-stats" class="control-btn danger full-width" style="margin-top: 20px;">
+                    🗑️ Сбросить всю статистику
+                </button>
             </div>
         </div>
     </div>
