@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#9D4EDD">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#9D4EDD" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>🍅 Life Journey RPG Pomodoro</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
     <div class="demo-notice">
@@ -31,8 +31,8 @@
             <div class="timer-container">
                 <div class="circular-progress">
                     <svg class="progress-ring" width="280" height="280">
-                        <circle class="progress-ring-background" cx="140" cy="140" r="130"></circle>
-                        <circle class="progress-ring-fill" cx="140" cy="140" r="130"></circle>
+                        <circle class="progress-ring-background" cx="140" cy="140" r="130" />
+                        <circle class="progress-ring-fill" cx="140" cy="140" r="130" />
                     </svg>
                     <div class="timer-display">
                         <div id="time-display">25:00</div>
@@ -65,7 +65,7 @@
                     <label for="work-duration">Рабочий блок (минуты)</label>
                     <div class="number-input">
                         <button class="decrease">-</button>
-                        <input type="number" id="work-duration" min="1" max="60" value="25">
+                        <input type="number" id="work-duration" min="1" max="60" value="25" />
                         <button class="increase">+</button>
                     </div>
                     <small>Стандартно: 25 минут</small>
@@ -75,7 +75,7 @@
                     <label for="short-break-duration">Короткий перерыв (минуты)</label>
                     <div class="number-input">
                         <button class="decrease">-</button>
-                        <input type="number" id="short-break-duration" min="1" max="30" value="5">
+                        <input type="number" id="short-break-duration" min="1" max="30" value="5" />
                         <button class="increase">+</button>
                     </div>
                     <small>Стандартно: 5 минут</small>
@@ -85,7 +85,7 @@
                     <label for="long-break-duration">Длинный перерыв (минуты)</label>
                     <div class="number-input">
                         <button class="decrease">-</button>
-                        <input type="number" id="long-break-duration" min="5" max="60" value="15">
+                        <input type="number" id="long-break-duration" min="5" max="60" value="15" />
                         <button class="increase">+</button>
                     </div>
                     <small>Стандартно: 15 минут</small>
@@ -95,7 +95,7 @@
                     <label for="sessions-until-long-break">Рабочих блоков до длинного перерыва</label>
                     <div class="number-input">
                         <button class="decrease">-</button>
-                        <input type="number" id="sessions-until-long-break" min="2" max="8" value="4">
+                        <input type="number" id="sessions-until-long-break" min="2" max="8" value="4" />
                         <button class="increase">+</button>
                     </div>
                     <small>Стандартно: 4 блока</small>
@@ -103,15 +103,15 @@
 
                 <div class="setting-group">
                     <label class="checkbox-label">
-                        <input type="checkbox" id="sound-enabled" checked>
+                        <input type="checkbox" id="sound-enabled" checked />
                         <span class="checkmark"></span>
                         Звуковые уведомления
                     </label>
                 </div>
 
-                <div class="setting-group">
-                    <label for="sound-select">Звук уведомления</label>
-                    <select id="sound-select" class="sound-select">
+                <div class="setting-group" id="sound-selector-container">
+                    <label for="sound-select">Выберите звук уведомления</label>
+                    <select id="sound-select" class="sound-selector">
                         <option value="sound1">🌪️ Волшебный вжух</option>
                         <option value="sound2">🕹️ Геймовер</option>
                         <option value="sound3">🔔 Колокольчик</option>
@@ -124,14 +124,15 @@
                         <option value="sound10">🚀 Запуск системы</option>
                     </select>
                     <button id="test-sound" class="control-btn secondary">
-                        <span class="btn-icon">🔊</span>
-                        <span class="btn-text">Тест</span>
+                        🔊 Проверить звук
                     </button>
                 </div>
 
+                <!-- Sound selector will be created dynamically by JavaScript -->
+
                 <div class="setting-group">
                     <label class="checkbox-label">
-                        <input type="checkbox" id="auto-start-breaks">
+                        <input type="checkbox" id="auto-start-breaks" />
                         <span class="checkmark"></span>
                         Автозапуск перерывов
                     </label>
@@ -139,7 +140,7 @@
 
                 <div class="setting-group">
                     <label class="checkbox-label">
-                        <input type="checkbox" id="auto-start-work">
+                        <input type="checkbox" id="auto-start-work" />
                         <span class="checkmark"></span>
                         Автозапуск рабочих блоков
                     </label>
@@ -159,7 +160,6 @@
             <div class="stats-container">
                 <h2>📊 Ваша статистика</h2>
                 
-                <!-- Переключатель периодов -->
                 <div class="period-selector">
                     <button class="period-btn active" data-period="today">Сегодня</button>
                     <button class="period-btn" data-period="week">Неделя</button>
@@ -167,7 +167,6 @@
                     <button class="period-btn" data-period="all">Всё время</button>
                 </div>
 
-                <!-- Основные метрики -->
                 <div class="stats-grid">
                     <div class="stat-card">
                         <div class="stat-icon">🍅</div>
@@ -191,7 +190,6 @@
                     </div>
                 </div>
 
-                <!-- График за неделю -->
                 <div class="chart-container">
                     <h3>📈 Активность по дням</h3>
                     <div class="chart" id="weekly-chart">
@@ -226,7 +224,6 @@
                     </div>
                 </div>
 
-                <!-- Детальная статистика -->
                 <div class="detailed-stats">
                     <h3>📋 Подробная информация</h3>
                     <div class="stat-row">
@@ -247,7 +244,6 @@
                     </div>
                 </div>
 
-                <!-- Достижения -->
                 <div class="achievements">
                     <h3>🏆 Достижения</h3>
                     <div class="achievement-list" id="achievement-list">
@@ -277,7 +273,6 @@
         </div>
     </div>
 
-    <!-- Уведомления -->
     <div id="notification" class="notification hidden">
         <div class="notification-content">
             <span id="notification-text"></span>
