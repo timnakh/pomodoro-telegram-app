@@ -201,249 +201,282 @@ class PomodoroTimer {
         return container;
     }
 
-    async playNotificationSound() {
-        console.log('Attempting to play notification sound...');
-        
-        if (!this.settings.soundEnabled) {
-            console.log('Sound is disabled in settings');
-            return;
+    initializeSettings() {
+        // Get all settings inputs
+        const workDurationInput = document.getElementById('work-duration');
+        const shortBreakInput = document.getElementById('short-break-duration');
+        const longBreakInput = document.getElementById('long-break-duration');
+        const sessionsInput = document.getElementById('sessions-until-long-break');
+        const soundEnabledInput = document.getElementById('sound-enabled');
+        const autoStartBreaksInput = document.getElementById('auto-start-breaks');
+        const autoStartWorkInput = document.getElementById('auto-start-work');
+        const soundSelect = document.getElementById('sound-select');
+
+        // Set initial values
+        if (workDurationInput) workDurationInput.value = this.settings.workDuration;
+        if (shortBreakInput) shortBreakInput.value = this.settings.shortBreakDuration;
+        if (longBreakInput) longBreakInput.value = this.settings.longBreakDuration;
+        if (sessionsInput) sessionsInput.value = this.settings.sessionsUntilLongBreak;
+        if (soundEnabledInput) soundEnabledInput.checked = this.settings.soundEnabled;
+        if (autoStartBreaksInput) autoStartBreaksInput.checked = this.settings.autoStartBreaks;
+        if (autoStartWorkInput) autoStartWorkInput.checked = this.settings.autoStartWork;
+        if (soundSelect) soundSelect.value = this.settings.selectedSound;
+
+        // Add event listeners
+        const inputs = [workDurationInput, shortBreakInput, longBreakInput, sessionsInput];
+        inputs.forEach(input => {
+            if (input) {
+                input.addEventListener('change', () => {
+                    const value = parseInt(input.value);
+                    if (!isNaN(value) && value > 0) {
+                        switch(input.id) {
+                            case 'work-duration':
+                                this.settings.workDuration = value;
+                                break;
+                            case 'short-break-duration':
+                                this.settings.shortBreakDuration = value;
+                                break;
+                            case 'long-break-duration':
+                                this.settings.longBreakDuration = value;
+                                break;
+                            case 'sessions-until-long-break':
+                                this.settings.sessionsUntilLongBreak = value;
+                                break;
+                        }
+                        this.saveSettings();
+                        this.resetTimer();
+                    }
+                });
+            }
+        });
+
+        // Add event listeners for checkboxes
+        if (soundEnabledInput) {
+            soundEnabledInput.addEventListener('change', () => {
+                this.settings.soundEnabled = soundEnabledInput.checked;
+                this.saveSettings();
+            });
         }
 
-        try {
-            // Убеждаемся, что AudioContext инициализирован
-            if (!this.audioContext) {
-                console.log('Creating new AudioContext...');
-                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            }
+        if (autoStartBreaksInput) {
+            autoStartBreaksInput.addEventListener('change', () => {
+                this.settings.autoStartBreaks = autoStartBreaksInput.checked;
+                this.saveSettings();
+            });
+        }
 
-            // Проверяем состояние AudioContext
-            if (this.audioContext.state === 'suspended') {
-                console.log('AudioContext suspended, attempting to resume...');
-                await this.audioContext.resume();
-            }
+        if (autoStartWorkInput) {
+            autoStartWorkInput.addEventListener('change', () => {
+                this.settings.autoStartWork = autoStartWorkInput.checked;
+                this.saveSettings();
+            });
+        }
 
-            const selectedSound = this.settings.selectedSound || 'sound4';
-            console.log('Selected sound:', selectedSound);
-
-            // Проверяем наличие буфера
-            if (!this.soundBuffers[selectedSound]) {
-                console.log('Sound buffer not found, attempting to load sounds...');
-                await this.initSounds();
-                if (!this.soundBuffers[selectedSound]) {
-                    console.error('Failed to load sound buffer even after initialization');
-                    return;
+        if (soundSelect) {
+            soundSelect.addEventListener('change', () => {
+                this.settings.selectedSound = soundSelect.value;
+                this.saveSettings();
+                // Play selected sound as preview
+                if (this.settings.soundEnabled) {
+                    this.playNotificationSound();
                 }
-            }
-
-            // Создаем источник звука
-            const source = this.audioContext.createBufferSource();
-            const gainNode = this.audioContext.createGain();
-            
-            source.buffer = this.soundBuffers[selectedSound];
-            gainNode.gain.value = 0.5; // 50% громкости
-            
-            source.connect(gainNode);
-            gainNode.connect(this.audioContext.destination);
-            
-            // Добавляем обработку окончания воспроизведения
-            source.onended = () => {
-                console.log('Sound playback completed');
-            };
-
-            console.log('Starting sound playback...');
-            source.start(0);
-        } catch (error) {
-            console.error('Error playing sound:', error);
+            });
         }
     }
 
     async initSounds() {
         console.log('Initializing sounds...');
-        try {
-            // Создаем AudioContext если его еще нет
-            if (!this.audioContext) {
-                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                console.log('AudioContext created');
+        
+        // Create audio elements for each sound
+        const sounds = ['sound1', 'sound2', 'sound3', 'sound4', 'sound5', 
+                       'sound6', 'sound7', 'sound8', 'sound9', 'sound10'];
+                       
+        for (const sound of sounds) {
+            try {
+                const audio = new Audio();
+                audio.preload = 'auto';  // Предзагрузка звука
+                audio.src = `sounds/${sound}.wav`;  // Используем .wav вместо .mp3
+                this.soundBuffers[sound] = audio;
+            } catch (error) {
+                console.log(`Error loading sound ${sound}:`, error);
             }
+        }
+        
+        console.log('All sounds initialized');
+    }
 
-            // Инициализируем буферы для всех звуков
-            this.soundBuffers = {};
-            
-            // Загружаем все звуки параллельно
-            const loadPromises = [];
-            for (let i = 1; i <= 10; i++) {
-                const soundName = `sound${i}`;
-                const soundUrl = `sounds/${soundName}.mp3`;
-                
-                loadPromises.push(
-                    fetch(soundUrl)
-                        .then(response => {
-                            if (!response.ok) {
-                                throw new Error(`HTTP error! status: ${response.status}`);
-                            }
-                            return response.arrayBuffer();
-                        })
-                        .then(arrayBuffer => this.audioContext.decodeAudioData(arrayBuffer))
-                        .then(audioBuffer => {
-                            this.soundBuffers[soundName] = audioBuffer;
-                            console.log(`Loaded sound: ${soundName}`);
-                        })
-                        .catch(error => {
-                            console.error(`Error loading sound ${soundName}:`, error);
-                        })
-                );
-            }
-
-            await Promise.all(loadPromises);
-            console.log('All sounds initialized');
-        } catch (error) {
-            console.error('Error initializing sounds:', error);
+    playNotificationSound() {
+        if (!this.settings.soundEnabled) return;
+        
+        const sound = this.soundBuffers[this.settings.selectedSound];
+        if (sound) {
+            sound.currentTime = 0;  // Сбрасываем время воспроизведения
+            sound.play().catch(error => {
+                console.log('Error playing sound:', error);
+            });
         }
     }
 
     bindEvents() {
-        console.log('Binding events...');
-        
-        // Привязываем обработчики к основным кнопкам управления таймером
-        const startPauseBtn = document.getElementById('start-pause-btn');
-        const resetBtn = document.getElementById('reset-btn');
-        const skipBtn = document.getElementById('skip-btn');
-
-        const handleStartPause = (e) => {
+        // Обработчики для основных кнопок управления таймером
+        const handleClick = (e, action) => {
             e.preventDefault();
             e.stopPropagation();
-            if (this.isRunning) {
-                this.pauseTimer();
-            } else {
-                this.startTimer();
+            
+            switch(action) {
+                case 'start':
+                    if (this.isRunning) {
+                        this.pauseTimer();
+                    } else {
+                        this.startTimer();
+                    }
+                    break;
+                case 'reset':
+                    this.resetTimer();
+                    break;
+                case 'skip':
+                    this.skipSession();
+                    break;
             }
         };
 
-        const handleReset = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            this.resetTimer();
-        };
+        // Привязываем обработчики к кнопкам
+        const startPauseBtn = document.getElementById('start-pause-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const skipBtn = document.getElementById('skip-btn');
+        const testSoundBtn = document.getElementById('test-sound');
 
-        const handleSkip = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            this.skipSession();
-        };
+        if (startPauseBtn) {
+            startPauseBtn.addEventListener('click', (e) => handleClick(e, 'start'));
+            startPauseBtn.addEventListener('touchstart', (e) => handleClick(e, 'start'));
+        }
 
-        // Добавляем обработчики для разных типов устройств
-        ['click', 'touchstart'].forEach(eventType => {
-            startPauseBtn?.addEventListener(eventType, handleStartPause.bind(this), { passive: false });
-            resetBtn?.addEventListener(eventType, handleReset.bind(this), { passive: false });
-            skipBtn?.addEventListener(eventType, handleSkip.bind(this), { passive: false });
-        });
+        if (resetBtn) {
+            resetBtn.addEventListener('click', (e) => handleClick(e, 'reset'));
+            resetBtn.addEventListener('touchstart', (e) => handleClick(e, 'reset'));
+        }
 
-        // Привязываем обработчики к вкладкам
-        const tabs = document.querySelectorAll('.nav-tab');
-        const tabContents = document.querySelectorAll('.tab-content');
+        if (skipBtn) {
+            skipBtn.addEventListener('click', (e) => handleClick(e, 'skip'));
+            skipBtn.addEventListener('touchstart', (e) => handleClick(e, 'skip'));
+        }
 
+        // Добавляем обработчик для кнопки проверки звука
+        if (testSoundBtn) {
+            const handleTestSound = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.playNotificationSound();
+            };
+            testSoundBtn.addEventListener('click', handleTestSound);
+            testSoundBtn.addEventListener('touchstart', handleTestSound);
+        }
+
+        // Обработчики для вкладок
         const handleTabClick = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const targetTab = e.currentTarget.getAttribute('data-tab');
-            
-            // Обновляем активную вкладку
-            tabs.forEach(tab => {
-                tab.classList.toggle('active', tab.getAttribute('data-tab') === targetTab);
-            });
-            
+            const tab = e.target.closest('.nav-tab');
+            if (!tab) return;
+
+            // Убираем активный класс со всех вкладок
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+
+            // Добавляем активный класс выбранной вкладке
+            tab.classList.add('active');
+
             // Показываем соответствующий контент
-            tabContents.forEach(content => {
-                content.classList.toggle('active', content.id === `${targetTab}-tab`);
-            });
+            const tabName = tab.dataset.tab;
+            const tabContent = document.getElementById(`${tabName}-tab`);
+            if (tabContent) {
+                tabContent.classList.add('active');
+            }
         };
 
-        tabs.forEach(tab => {
-            ['click', 'touchstart'].forEach(eventType => {
-                tab.addEventListener(eventType, handleTabClick, { passive: false });
-            });
-        });
+        // Привязываем обработчик к контейнеру вкладок
+        const tabContainer = document.querySelector('.nav-tabs');
+        if (tabContainer) {
+            tabContainer.addEventListener('click', handleTabClick);
+        }
 
-        // Привязываем обработчики к кнопкам настроек
+        // Кнопки настроек
         const saveSettingsBtn = document.getElementById('save-settings');
         const resetSettingsBtn = document.getElementById('reset-settings');
         const resetStatsBtn = document.getElementById('reset-stats');
 
-        const handleSaveSettings = async (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            await this.saveSettings();
-            this.showNotification('Настройки сохранены');
-        };
+        if (saveSettingsBtn) {
+            saveSettingsBtn.addEventListener('click', e => handleClick(e, 'save'));
+            saveSettingsBtn.addEventListener('touchstart', e => handleClick(e, 'save'));
+        }
 
-        const handleResetSettings = async (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            await this.resetSettings();
-            this.showNotification('Настройки сброшены к стандартным');
-        };
+        if (resetSettingsBtn) {
+            resetSettingsBtn.addEventListener('click', e => handleClick(e, 'resetSettings'));
+            resetSettingsBtn.addEventListener('touchstart', e => handleClick(e, 'resetSettings'));
+        }
 
-        const handleResetStats = async (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            await this.resetStats();
-            this.showNotification('Статистика сброшена');
-        };
+        if (resetStatsBtn) {
+            resetStatsBtn.addEventListener('click', e => handleClick(e, 'resetStats'));
+            resetStatsBtn.addEventListener('touchstart', e => handleClick(e, 'resetStats'));
+        }
 
-        ['click', 'touchstart'].forEach(eventType => {
-            saveSettingsBtn?.addEventListener(eventType, handleSaveSettings.bind(this), { passive: false });
-            resetSettingsBtn?.addEventListener(eventType, handleResetSettings.bind(this), { passive: false });
-            resetStatsBtn?.addEventListener(eventType, handleResetStats.bind(this), { passive: false });
-        });
-
-        // Привязываем обработчики к кнопкам периодов статистики
+        // Кнопки периодов статистики
         const periodBtns = document.querySelectorAll('.period-btn');
-        
-        const handlePeriodChange = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const period = e.currentTarget.getAttribute('data-period');
-            periodBtns.forEach(btn => btn.classList.toggle('active', btn.getAttribute('data-period') === period));
-            this.updateStats(period);
-        };
-
         periodBtns.forEach(btn => {
-            ['click', 'touchstart'].forEach(eventType => {
-                btn.addEventListener(eventType, handlePeriodChange.bind(this), { passive: false });
-            });
+            const handlePeriodClick = (e) => {
+                e.preventDefault();
+                if (e.type === 'touchstart') {
+                    e.stopPropagation();
+                }
+                
+                const period = btn.getAttribute('data-period');
+                periodBtns.forEach(b => b.classList.toggle('active', b.getAttribute('data-period') === period));
+                this.updateStats(period);
+            };
+
+            btn.addEventListener('click', handlePeriodClick);
+            btn.addEventListener('touchstart', handlePeriodClick);
         });
 
-        // Привязываем обработчики к кнопкам изменения числовых значений
+        // Числовые инпуты
         const numberInputs = document.querySelectorAll('.number-input');
-        
         numberInputs.forEach(container => {
             const input = container.querySelector('input');
             const decreaseBtn = container.querySelector('.decrease');
             const increaseBtn = container.querySelector('.increase');
-            
-            const handleDecrease = (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const min = parseInt(input.min) || 1;
-                input.value = Math.max(min, parseInt(input.value) - 1);
-                input.dispatchEvent(new Event('change'));
-            };
-            
-            const handleIncrease = (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const max = parseInt(input.max) || 60;
-                input.value = Math.min(max, parseInt(input.value) + 1);
-                input.dispatchEvent(new Event('change'));
-            };
-            
-            ['click', 'touchstart'].forEach(eventType => {
-                decreaseBtn?.addEventListener(eventType, handleDecrease, { passive: false });
-                increaseBtn?.addEventListener(eventType, handleIncrease, { passive: false });
-            });
+
+            if (input && decreaseBtn && increaseBtn) {
+                const handleDecrease = (e) => {
+                    e.preventDefault();
+                    if (e.type === 'touchstart') {
+                        e.stopPropagation();
+                    }
+                    const min = parseInt(input.min) || 1;
+                    input.value = Math.max(min, parseInt(input.value) - 1);
+                    input.dispatchEvent(new Event('change'));
+                };
+
+                const handleIncrease = (e) => {
+                    e.preventDefault();
+                    if (e.type === 'touchstart') {
+                        e.stopPropagation();
+                    }
+                    const max = parseInt(input.max) || 60;
+                    input.value = Math.min(max, parseInt(input.value) + 1);
+                    input.dispatchEvent(new Event('change'));
+                };
+
+                decreaseBtn.addEventListener('click', handleDecrease);
+                decreaseBtn.addEventListener('touchstart', handleDecrease);
+                increaseBtn.addEventListener('click', handleIncrease);
+                increaseBtn.addEventListener('touchstart', handleIncrease);
+
+                input.addEventListener('change', () => {
+                    const settingName = input.id.replace(/-/g, '');
+                    this.settings[settingName] = parseInt(input.value);
+                });
+            }
         });
 
-        // Привязываем обработчики к чекбоксам
+        // Чекбоксы
         const checkboxes = document.querySelectorAll('input[type="checkbox"]');
         checkboxes.forEach(checkbox => {
             checkbox.addEventListener('change', () => {
@@ -451,9 +484,320 @@ class PomodoroTimer {
                 this.settings[settingName] = checkbox.checked;
             });
         });
-
-        console.log('All events bound successfully');
     }
 
-    // ... rest of the class methods ...
-} 
+    async loadSettings() {
+        try {
+            const savedSettings = localStorage.getItem('pomodoroSettings');
+            if (savedSettings) {
+                this.settings = { ...this.defaultSettings, ...JSON.parse(savedSettings) };
+            }
+            console.log('Settings loaded:', this.settings);
+        } catch (error) {
+            console.error('Error loading settings:', error);
+            this.settings = { ...this.defaultSettings };
+        }
+    }
+
+    async saveSettings() {
+        try {
+            localStorage.setItem('pomodoroSettings', JSON.stringify(this.settings));
+            console.log('Settings saved:', this.settings);
+            this.showNotification('Настройки сохранены');
+        } catch (error) {
+            console.error('Error saving settings:', error);
+        }
+    }
+
+    async loadStats() {
+        try {
+            const savedStats = localStorage.getItem('pomodoroStats');
+            if (savedStats) {
+                this.stats = JSON.parse(savedStats);
+            }
+            console.log('Stats loaded:', this.stats);
+        } catch (error) {
+            console.error('Error loading stats:', error);
+        }
+    }
+
+    async saveStats() {
+        try {
+            localStorage.setItem('pomodoroStats', JSON.stringify(this.stats));
+            console.log('Stats saved:', this.stats);
+        } catch (error) {
+            console.error('Error saving stats:', error);
+        }
+    }
+
+    startTimer() {
+        if (this.isRunning) return;
+        
+        console.log('Starting timer...');
+        this.isRunning = true;
+        this.startTime = Date.now() - ((this.settings.workDuration * 60) - this.currentTime) * 1000;
+        this.lastUpdate = Date.now();
+        
+        this.timer = setInterval(() => {
+            const now = Date.now();
+            const elapsed = Math.floor((now - this.lastUpdate) / 1000);
+            
+            if (elapsed >= 1) {
+                this.currentTime = Math.max(0, this.currentTime - elapsed);
+                this.lastUpdate = now;
+                
+                if (this.currentTime <= 0) {
+                    this.completeSession();
+                } else {
+                    this.updateDisplay();
+                }
+            }
+        }, 100);
+
+        this.updateButton();
+    }
+
+    pauseTimer() {
+        if (!this.isRunning) return;
+        
+        console.log('Pausing timer...');
+        this.isRunning = false;
+        clearInterval(this.timer);
+        this.timer = null;
+        this.updateButton();
+    }
+
+    resetTimer() {
+        console.log('Resetting timer...');
+        this.pauseTimer();
+        this.currentTime = this.settings.workDuration * 60;
+        this.updateDisplay();
+    }
+
+    skipSession() {
+        console.log('Skipping session...');
+        this.pauseTimer();
+        this.completeSession();
+    }
+
+    completeSession() {
+        this.pauseTimer();
+        
+        // Воспроизводим звук уведомления
+        if (this.settings.soundEnabled) {
+            this.playNotificationSound();
+        }
+        
+        // Обновляем статистику
+        if (this.currentSession === 'work') {
+            this.stats.today.pomodoros++;
+            this.stats.today.completed++;
+            this.saveStats();
+        }
+        
+        // Переключаем тип сессии
+        if (this.currentSession === 'work') {
+            this.sessionsCompleted++;
+            if (this.sessionsCompleted >= this.settings.sessionsUntilLongBreak) {
+                this.currentSession = 'longBreak';
+                this.sessionsCompleted = 0;
+            } else {
+                this.currentSession = 'shortBreak';
+            }
+        } else {
+            this.currentSession = 'work';
+        }
+        
+        // Устанавливаем новое время
+        switch (this.currentSession) {
+            case 'work':
+                this.currentTime = this.settings.workDuration * 60;
+                break;
+            case 'shortBreak':
+                this.currentTime = this.settings.shortBreakDuration * 60;
+                break;
+            case 'longBreak':
+                this.currentTime = this.settings.longBreakDuration * 60;
+                break;
+        }
+        
+        // Обновляем интерфейс
+        this.updateDisplay();
+        this.updateSessionInfo();
+        
+        // Автозапуск следующей сессии если включено
+        if ((this.currentSession === 'work' && this.settings.autoStartWork) ||
+            ((this.currentSession === 'shortBreak' || this.currentSession === 'longBreak') && this.settings.autoStartBreaks)) {
+            this.startTimer();
+        }
+    }
+
+    updateDisplay() {
+        const minutes = Math.floor(this.currentTime / 60);
+        const seconds = this.currentTime % 60;
+        const timeDisplay = document.getElementById('time-display');
+        if (timeDisplay) {
+            timeDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+        
+        // Обновляем прогресс-кольцо
+        const progressRing = document.querySelector('.progress-ring-fill');
+        if (progressRing) {
+            let totalTime;
+            switch (this.currentSession) {
+                case 'work':
+                    totalTime = this.settings.workDuration * 60;
+                    break;
+                case 'shortBreak':
+                    totalTime = this.settings.shortBreakDuration * 60;
+                    break;
+                case 'longBreak':
+                    totalTime = this.settings.longBreakDuration * 60;
+                    break;
+            }
+            
+            const progress = (this.currentTime / totalTime);
+            const circumference = 816; // 2 * π * r, где r = 130
+            const offset = circumference * (1 - progress);
+            progressRing.style.strokeDashoffset = offset;
+        }
+    }
+
+    updateButton() {
+        const button = document.getElementById('start-pause-btn');
+        if (button) {
+            const icon = button.querySelector('.btn-icon');
+            const text = button.querySelector('.btn-text');
+            
+            if (this.isRunning) {
+                icon.textContent = '⏸️';
+                text.textContent = 'Пауза';
+            } else {
+                icon.textContent = '▶️';
+                text.textContent = 'Начать';
+            }
+        }
+    }
+
+    updateSessionInfo() {
+        const sessionType = document.getElementById('session-type');
+        const sessionCount = document.getElementById('session-count');
+        
+        if (sessionType) {
+            switch (this.currentSession) {
+                case 'work':
+                    sessionType.textContent = 'Рабочий блок';
+                    break;
+                case 'shortBreak':
+                    sessionType.textContent = 'Короткий перерыв';
+                    break;
+                case 'longBreak':
+                    sessionType.textContent = 'Длинный перерыв';
+                    break;
+            }
+        }
+        
+        if (sessionCount) {
+            sessionCount.textContent = `${this.sessionsCompleted + 1}/${this.settings.sessionsUntilLongBreak}`;
+        }
+    }
+
+    showNotification(message) {
+        const notification = document.getElementById('notification');
+        const notificationText = document.getElementById('notification-text');
+        
+        if (notification && notificationText) {
+            notificationText.textContent = message;
+            notification.classList.remove('hidden');
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => {
+                    notification.classList.add('hidden');
+                }, 300);
+            }, 3000);
+        }
+    }
+
+    updateStats() {
+        // Обновляем статистику на текущий день
+        const todayStats = document.getElementById('today-stats');
+        if (todayStats) {
+            todayStats.textContent = `Сегодня: ${this.stats.today.pomodoros} помидоров`;
+        }
+
+        // Обновляем общую статистику
+        const totalStats = document.getElementById('total-stats');
+        if (totalStats) {
+            totalStats.textContent = `Всего: ${this.stats.total.pomodoros} помидоров`;
+        }
+
+        // Обновляем статистику за неделю
+        const weekStats = document.getElementById('week-stats');
+        if (weekStats) {
+            // Очищаем предыдущие данные
+            weekStats.innerHTML = '';
+            
+            // Получаем текущий день недели (0 = воскресенье)
+            const today = new Date().getDay();
+            
+            // Создаем элементы для каждого дня недели
+            const days = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+            days.forEach((day, index) => {
+                const dayElement = document.createElement('div');
+                dayElement.className = 'week-day';
+                
+                // Определяем, является ли этот день текущим
+                const isToday = index === today;
+                if (isToday) {
+                    dayElement.classList.add('current-day');
+                }
+                
+                // Добавляем название дня и количество помидоров
+                dayElement.innerHTML = `
+                    <span class="day-name">${day}</span>
+                    <span class="pomodoro-count">${this.stats.week[index].pomodoros}</span>
+                `;
+                
+                weekStats.appendChild(dayElement);
+            });
+        }
+
+        // Обновляем достижения
+        const achievementsContainer = document.getElementById('achievements');
+        if (achievementsContainer) {
+            achievementsContainer.innerHTML = '';
+            
+            const achievements = {
+                first: { icon: '🎯', title: 'Первый помидор', description: 'Завершите первый рабочий блок' },
+                streak: { icon: '🔥', title: 'На волне', description: 'Завершите 3 помидора подряд' },
+                master: { icon: '🎓', title: 'Мастер фокуса', description: 'Завершите 10 помидоров за день' },
+                efficient: { icon: '⚡', title: 'Эффективность', description: 'Не прерывайте помидор 5 раз подряд' }
+            };
+            
+            Object.entries(achievements).forEach(([key, achievement]) => {
+                const achieved = this.stats.achievements[key];
+                const achievementElement = document.createElement('div');
+                achievementElement.className = `achievement ${achieved ? 'achieved' : ''}`;
+                
+                achievementElement.innerHTML = `
+                    <span class="achievement-icon">${achievement.icon}</span>
+                    <div class="achievement-info">
+                        <h3>${achievement.title}</h3>
+                        <p>${achievement.description}</p>
+                    </div>
+                `;
+                
+                achievementsContainer.appendChild(achievementElement);
+            });
+        }
+    }
+}
+
+// Создаем и инициализируем таймер
+document.addEventListener('DOMContentLoaded', () => {
+    const timer = new PomodoroTimer();
+    // Сохраняем экземпляр таймера глобально для отладки
+    window.pomodoroTimer = timer;
+}); 
